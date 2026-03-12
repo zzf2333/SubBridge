@@ -1,0 +1,108 @@
+# 配置 4: 带 DNS 和 fake-ip 的配置
+# 来源：典型的客户端配置，启用 DNS 劫持和 fake-ip
+
+port: 7890
+socks-port: 7891
+mixed-port: 7892
+allow-lan: false
+mode: Rule
+log-level: info
+ipv6: true
+
+dns:
+  enable: true
+  ipv6: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "*.localhost"
+    - "+.stun.*.*"
+    - "+.stun.*.*.*"
+    - "+.stun.*.*.*.*"
+    - "+.stun.*.*.*.*.*"
+    - "*.n.n.srv.nintendo.net"
+    - "+.stun.playstation.net"
+    - "xbox.*.*.microsoft.com"
+    - "*.*.xboxlive.com"
+    - "*.msftncsi.com"
+    - "*.msftconnecttest.com"
+    - "WORKGROUP"
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+    - https://doh.pub/dns-query
+    - https://dns.alidns.com/dns-query
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://dns.google/dns-query
+    - https://cloudflare-dns.com/dns-query
+  fallback-filter:
+    geoip: true
+    geoip-code: CN
+    ipcidr:
+      - 240.0.0.0/4
+  nameserver-policy:
+    "geosite:cn":
+      - 223.5.5.5
+      - 119.29.29.29
+    "geosite:geolocation-!cn":
+      - https://dns.google/dns-query
+
+proxies:
+  - name: "HK-01"
+    type: ss
+    server: hk1.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: password123
+
+  - name: "HK-02"
+    type: vmess
+    server: hk2.example.com
+    port: 443
+    uuid: 12345678-1234-1234-1234-123456789012
+    alterId: 0
+    cipher: auto
+    tls: true
+    network: ws
+    ws-opts:
+      path: /v2ray
+
+  - name: "US-01"
+    type: trojan
+    server: us1.example.com
+    port: 443
+    password: trojan-password
+
+proxy-groups:
+  - name: "🚀 Proxy"
+    type: select
+    proxies:
+      - "♻️ Auto"
+      - "HK-01"
+      - "HK-02"
+      - "US-01"
+      - DIRECT
+
+  - name: "♻️ Auto"
+    type: url-test
+    proxies:
+      - "HK-01"
+      - "HK-02"
+      - "US-01"
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+
+rules:
+  - DOMAIN-SUFFIX,local,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT
+  - IP-CIDR,172.16.0.0/12,DIRECT
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR,10.0.0.0/8,DIRECT
+  - DOMAIN-SUFFIX,google.com,🚀 Proxy
+  - DOMAIN-KEYWORD,google,🚀 Proxy
+  - GEOIP,CN,DIRECT
+  - MATCH,🚀 Proxy

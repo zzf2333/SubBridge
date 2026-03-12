@@ -1,0 +1,83 @@
+mixed-port: 7890
+mode: rule
+log-level: info
+
+dns:
+  enable: true
+  ipv6: false
+  enhanced-mode: fake-ip
+  default-nameserver:
+    - 223.5.5.5
+  nameserver:
+    - https://dns.google/dns-query
+  fallback:
+    - tls://1.1.1.1
+  nameserver-policy:
+    "geosite:cn":
+      - https://dns.alidns.com/dns-query
+    "+.openai.com":
+      - tls://8.8.8.8
+  fake-ip-filter:
+    - "*.lan"
+  respect-rules: true
+
+tun:
+  enable: true
+  stack: system
+  auto-route: true
+  auto-detect-interface: true
+  dns-hijack:
+    - any:53
+  strict-route: true
+  mtu: 9000
+
+proxies:
+  - name: NodeA
+    type: ss
+    server: node-a.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: pass-a
+
+  - name: NodeB
+    type: vmess
+    server: node-b.example.com
+    port: 443
+    uuid: 12345678-1234-1234-1234-123456789012
+    alterId: 0
+    cipher: auto
+    tls: true
+    network: ws
+    ws-opts:
+      path: /ws
+      headers:
+        Host: node-b.example.com
+
+proxy-groups:
+  - name: Auto
+    type: url-test
+    proxies:
+      - NodeA
+      - NodeB
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: RelayChain
+    type: relay
+    proxies:
+      - Auto
+      - NodeA
+
+  - name: Proxy
+    type: select
+    proxies:
+      - Auto
+      - RelayChain
+      - NodeB
+
+rules:
+  - DOMAIN-SUFFIX,example.com,Proxy
+  - GEOSITE,cn,DIRECT
+  - DOMAIN-REGEX,^.*openai.*$,Proxy
+  - PROCESS-PATH,/Applications/Arc.app/Contents/MacOS/Arc,Proxy
+  - MATCH,Proxy

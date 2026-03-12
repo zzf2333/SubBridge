@@ -1,0 +1,69 @@
+# Edge cases Clash configuration
+# 边缘情况测试配置
+
+port: 7890
+socks-port: 7891
+allow-lan: false
+mode: rule
+log-level: info
+
+proxies:
+  # 特殊字符名称
+  - name: "节点-测试 (1)"
+    type: ss
+    server: test1.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: password123
+
+  # 长名称
+  - name: "This is a very long proxy name that might cause issues in some parsers or configurations"
+    type: vmess
+    server: test2.example.com
+    port: 443
+    uuid: 12345678-1234-1234-1234-123456789012
+    alterId: 0
+    cipher: auto
+
+  # IPv6 地址
+  - name: "ipv6-test"
+    type: ss
+    server: "2001:db8::1"
+    port: 8388
+    cipher: aes-256-gcm
+    password: password123
+
+  # 非标准端口
+  - name: "high-port"
+    type: trojan
+    server: test3.example.com
+    port: 65535
+    password: password123
+
+proxy-groups:
+  # 嵌套选择器
+  - name: "AUTO"
+    type: url-test
+    proxies:
+      - 节点-测试 (1)
+      - ipv6-test
+    url: http://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: "PROXY"
+    type: select
+    proxies:
+      - AUTO
+      - 节点-测试 (1)
+      - This is a very long proxy name that might cause issues in some parsers or configurations
+      - ipv6-test
+      - high-port
+
+rules:
+  # 复杂规则
+  - DOMAIN-SUFFIX,example.com,PROXY
+  - DOMAIN-KEYWORD,test,PROXY
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR6,2001:db8::/32,DIRECT
+  - GEOIP,CN,DIRECT
+  - MATCH,PROXY

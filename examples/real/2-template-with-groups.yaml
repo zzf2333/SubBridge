@@ -1,0 +1,291 @@
+# Attribute: userinfo-url={{print .subscribe_url}}
+# Attribute: filename={{hostOf .subscribe_url}}.yaml
+
+ipv6: true
+mixed-port: 7890
+mode: rule
+allow-lan: true
+log-level: info
+external-controller: 127.0.0.1:6170
+
+hosts:
+  local.lan: "127.0.0.1"
+
+tun:
+  enable: true
+  stack: system
+  dns-hijack:
+    - udp://any:53
+    - tcp://any:53
+  auto-redir: true
+  auto-route: true
+  auto-detect-interface: true
+
+dns:
+  enable: true
+  ipv6: true
+  listen: ":53"
+  enhanced-mode: fake-ip
+  nameserver:
+    - 192.168.50.1
+    - 119.29.29.29
+    - 223.5.5.5
+  fake-ip-filter:
+    - "+.stun.*.*"
+    - "+.stun.*.*.*"
+    - "+.stun.*.*.*.*"
+    - "ddns.*.*"
+    - "ddns.*.*.*"
+    - "lens.l.google.com"
+    - "stun.l.google.com"
+    - "*.n.n.srv.nintendo.net"
+    - "*.mcdn.bilivideo.cn"
+    - "dns.msftncsi.com"
+    - "www.msftncsi.com"
+    - "www.msftconnecttest.com"
+    - "connect.rom.miui.com"
+    - "+.asuscomm.cn"
+    - "+.asuscomm.com"
+    - "WORKGROUP"
+
+profile:
+  store-selected: true
+  store-fake-ip: true
+
+proxies:
+  - name: Local
+    type: http
+    server: 192.168.200.10
+    port: 8080
+  - name: Hotspot
+    type: http
+    server: 192.168.43.233
+    port: 8080
+
+rule-provider-common: &rule-provider-common
+  type: http
+  behavior: domain
+  interval: 86400
+
+rule-providers:
+  LocalIPs:
+    <<: *rule-provider-common
+    behavior: ipcidr
+    url: "https://rules.kr328.app/local-ips.yaml"
+    path: ./local_ips.yaml
+  PublicDNS:
+    <<: *rule-provider-common
+    behavior: ipcidr
+    url: "https://rules.kr328.app/public-dns.yaml"
+    path: ./public_dns.yaml
+  PublicDNSDomains:
+    <<: *rule-provider-common
+    behavior: domain
+    url: "https://rules.kr328.app/public-dns-domain.yaml"
+    path: ./public_dns_domain.yaml
+  DomesticDomains:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/cn.yaml"
+    path: ./cn.yaml
+  DomesticIPs:
+    <<: *rule-provider-common
+    behavior: ipcidr
+    url: "https://rules.kr328.app/cn-ips.yaml"
+    path: ./cn_ips.yaml
+  GlobalScholarDomains:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/category-scholar-!cn.yaml"
+    path: ./category_scholar_not_cn.yaml
+  GlobalDomains:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/geolocation-!cn.yaml"
+    path: ./geolocation_not_cn.yaml
+  GlobalTldDomains:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/tld-!cn.yaml"
+    path: ./tld_not_cn.yaml
+  Bilibili:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/bilibili.yaml"
+    path: ./bilibili.yaml
+  Blizzard:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/blizzard.yaml"
+    path: ./blizzard.yaml
+  Steam:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/steam.yaml"
+    path: ./steam.yaml
+  Microsoft:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/microsoft.yaml"
+    path: ./microsoft.yaml
+  MihoyoCN:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/mihoyo@cn.yaml"
+    path: ./mihoyo_cn.yaml
+  Mihoyo:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/mihoyo.yaml"
+    path: ./mihoyo.yaml
+  SteamCN:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/steam@cn.yaml"
+    path: ./steam_cn.yaml
+  MicrosoftCN:
+    <<: *rule-provider-common
+    url: "https://rules.kr328.app/microsoft@cn.yaml"
+    path: ./microsoft_cn.yaml
+
+script:
+  engine: expr
+  shortcuts:
+    QUIC: "network == 'udp' and dst_port == 443"
+    BilibiliP2P: "network == 'udp' and match_provider(\"Bilibili\")"
+
+proxy-provider-common: &proxy-provider-common
+  type: http
+  interval: 3600
+  health-check:
+    url: "https://www.gstatic.com/generate_204"
+    interval: 180
+    enable: true
+
+proxy-providers:
+  Remote:
+    <<: *proxy-provider-common
+    path: "./remote.yaml"
+    url: "{{print .subscribe_url}}"
+
+domestic-group-common: &domestic-group-common
+  type: select
+  use:
+    - Remote
+  filter: ".*HK|TW|JP|SG.*"
+  proxies:
+    - DOMESTIC
+    - PROXY
+    - HK
+    - JP
+    - TW
+    - SG
+    - DIRECT
+    - DEBUG
+
+global-group-common: &global-group-common
+  type: select
+  use:
+    - Remote
+  filter: ".*HK|TW|JP|SG.*"
+  proxies:
+    - PROXY
+    - DOMESTIC
+    - HK
+    - JP
+    - TW
+    - SG
+    - DIRECT
+    - DEBUG
+
+proxy-groups:
+  - name: HK
+    type: url-test
+    use:
+      - Remote
+    filter: ".*HK.*"
+
+  - name: JP
+    type: url-test
+    use:
+      - Remote
+    filter: ".*JP.*"
+
+  - name: TW
+    type: url-test
+    use:
+      - Remote
+    filter: ".*TW.*"
+
+  - name: SG
+    type: url-test
+    use:
+      - Remote
+    filter: ".*SG.*"
+
+  - name: DEBUG
+    type: select
+    proxies:
+      - Local
+      - Hotspot
+
+  - name: DOMESTIC
+    type: select
+    use:
+      - Remote
+    filter: ".*HK|TW|JP|SG.*"
+    proxies:
+      - DIRECT
+      - HK
+      - JP
+      - TW
+      - SG
+      - DEBUG
+
+  - name: PROXY
+    type: select
+    use:
+      - Remote
+    filter: ".*HK|TW|JP|SG.*"
+    proxies:
+      - HK
+      - JP
+      - TW
+      - SG
+      - DIRECT
+      - DEBUG
+
+  - <<: *domestic-group-common
+    name: BILIBILI
+
+  - <<: *global-group-common
+    name: STEAM
+
+  - <<: *global-group-common
+    name: MICROSOFT
+
+  - <<: *domestic-group-common
+    name: MIHOYO
+
+  - <<: *domestic-group-common
+    name: MOBILEQQ
+
+rules:
+  - RULE-SET,PublicDNS,REJECT,no-resolve
+  - RULE-SET,PublicDNSDomains,REJECT,no-resolve
+  - SCRIPT,QUIC,REJECT,no-resolve
+  - SCRIPT,BilibiliP2P,REJECT,no-resolve
+  - DOMAIN,mitm.it,DEBUG
+  - DOMAIN,b23.tv,PROXY
+  - DOMAIN-SUFFIX,safelinks.protection.outlook.com,DIRECT
+  - DOMAIN-KEYWORD,google,PROXY
+  - DOMAIN-KEYWORD,tracker,DIRECT
+  - DOMAIN-KEYWORD,torrent,DIRECT
+  - PROCESS-NAME,com.tencent.mobileqq,MOBILEQQ
+  - PROCESS-NAME,com.tencent.tim,MOBILEQQ
+  - PROCESS-NAME,uu.exe,DIRECT
+  - PROCESS-NAME,uu_ball.exe,DIRECT
+  - RULE-SET,SteamCN,DOMESTIC
+  - RULE-SET,MicrosoftCN,DOMESTIC
+  - RULE-SET,Steam,STEAM
+  - RULE-SET,Bilibili,BILIBILI
+  - RULE-SET,Blizzard,PROXY
+  - RULE-SET,Microsoft,MICROSOFT
+  - RULE-SET,MihoyoCN,MIHOYO
+  - RULE-SET,Mihoyo,PROXY
+  - RULE-SET,GlobalTldDomains,PROXY
+  - RULE-SET,GlobalDomains,PROXY
+  - RULE-SET,DomesticDomains,DOMESTIC
+  - RULE-SET,GlobalScholarDomains,PROXY
+  - RULE-SET,DomesticIPs,DOMESTIC
+  - RULE-SET,LocalIPs,DIRECT
+  - MATCH,PROXY

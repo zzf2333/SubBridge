@@ -1,0 +1,60 @@
+mixed-port: 7890
+mode: rule
+
+dns:
+  enable: true
+  nameserver:
+    - 8.8.8.8
+    - {}
+
+proxy-providers:
+  remote-provider:
+    type: http
+    url: https://example.com/provider
+    path: ./providers/remote.yaml
+
+proxies:
+  - name: NodeA
+    type: ss
+    server: node-a.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: pass-a
+
+  - name: NodeB
+    type: trojan
+    server: node-b.example.com
+    port: 443
+    password: pass-b
+    sni: node-b.example.com
+
+proxy-groups:
+  - name: AutoFallback
+    type: fallback
+    proxies:
+      - NodeA
+      - NodeB
+    url: https://www.gstatic.com/generate_204
+    interval: 300
+
+  - name: Balanced
+    type: load-balance
+    proxies:
+      - AutoFallback
+      - NodeA
+    strategy: round-robin
+
+  - name: ProviderBacked
+    type: select
+    use:
+      - remote-provider
+
+  - name: Proxy
+    type: select
+    proxies:
+      - Balanced
+      - ProviderBacked
+      - NodeB
+
+rules:
+  - MATCH,Proxy

@@ -1,0 +1,165 @@
+# 配置 5: 带 TUN 的完整配置
+# 来源：移动端或需要系统级代理的场景
+# 这是从 2-template-with-groups.yaml 简化而来的真实配置
+
+port: 7890
+socks-port: 7891
+mixed-port: 7892
+allow-lan: true
+mode: Rule
+log-level: info
+ipv6: true
+external-controller: 127.0.0.1:9090
+
+tun:
+  enable: true
+  stack: system
+  dns-hijack:
+    - any:53
+    - tcp://any:53
+  auto-route: true
+  auto-detect-interface: true
+
+dns:
+  enable: true
+  ipv6: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+  fake-ip-filter:
+    - "*.lan"
+    - "*.local"
+    - "+.stun.*.*"
+    - "+.stun.*.*.*"
+    - "*.n.n.srv.nintendo.net"
+    - "*.msftncsi.com"
+    - "*.msftconnecttest.com"
+    - "WORKGROUP"
+  nameserver:
+    - 223.5.5.5
+    - 119.29.29.29
+  fallback:
+    - https://1.1.1.1/dns-query
+    - https://dns.google/dns-query
+
+proxies:
+  - name: "HK-01"
+    type: ss
+    server: hk1.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: password123
+    udp: true
+
+  - name: "HK-02"
+    type: vmess
+    server: hk2.example.com
+    port: 443
+    uuid: 12345678-1234-1234-1234-123456789012
+    alterId: 0
+    cipher: auto
+    tls: true
+    udp: true
+    network: ws
+    ws-opts:
+      path: /v2ray
+
+  - name: "US-01"
+    type: trojan
+    server: us1.example.com
+    port: 443
+    password: trojan-password
+    udp: true
+
+  - name: "JP-01"
+    type: hysteria2
+    server: jp1.example.com
+    port: 36712
+    password: hysteria-password
+    sni: jp1.example.com
+
+proxy-groups:
+  - name: "🚀 Proxy"
+    type: select
+    proxies:
+      - "♻️ Auto"
+      - "🇭🇰 Hong Kong"
+      - "🇺🇸 United States"
+      - "🇯🇵 Japan"
+      - DIRECT
+
+  - name: "♻️ Auto"
+    type: url-test
+    proxies:
+      - "HK-01"
+      - "HK-02"
+      - "US-01"
+      - "JP-01"
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+    tolerance: 50
+
+  - name: "🇭🇰 Hong Kong"
+    type: fallback
+    proxies:
+      - "HK-01"
+      - "HK-02"
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+
+  - name: "🇺🇸 United States"
+    type: select
+    proxies:
+      - "US-01"
+
+  - name: "🇯🇵 Japan"
+    type: select
+    proxies:
+      - "JP-01"
+
+  - name: "📺 Streaming"
+    type: select
+    proxies:
+      - "🚀 Proxy"
+      - "🇭🇰 Hong Kong"
+      - "🇺🇸 United States"
+      - "🇯🇵 Japan"
+
+  - name: "🎮 Gaming"
+    type: load-balance
+    proxies:
+      - "HK-01"
+      - "HK-02"
+      - "JP-01"
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+    strategy: consistent-hashing
+
+rules:
+  # Local network
+  - DOMAIN-SUFFIX,local,DIRECT
+  - IP-CIDR,127.0.0.0/8,DIRECT
+  - IP-CIDR,172.16.0.0/12,DIRECT
+  - IP-CIDR,192.168.0.0/16,DIRECT
+  - IP-CIDR,10.0.0.0/8,DIRECT
+
+  # Streaming
+  - DOMAIN-SUFFIX,netflix.com,📺 Streaming
+  - DOMAIN-SUFFIX,youtube.com,📺 Streaming
+  - DOMAIN-KEYWORD,youtube,📺 Streaming
+
+  # Gaming
+  - DOMAIN-SUFFIX,steampowered.com,🎮 Gaming
+  - DOMAIN-SUFFIX,steamcommunity.com,🎮 Gaming
+  - DST-PORT,27015-27030,🎮 Gaming
+  - DST-PORT,3478,🎮 Gaming
+
+  # Google
+  - DOMAIN-SUFFIX,google.com,🚀 Proxy
+  - DOMAIN-KEYWORD,google,🚀 Proxy
+
+  # China
+  - GEOIP,CN,DIRECT
+
+  # Final
+  - MATCH,🚀 Proxy

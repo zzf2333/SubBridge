@@ -1,0 +1,5547 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "sing-box config schema",
+	"type": "object",
+	"properties": {
+		"log": {
+			"$ref": "#/$defs/log.schema.json"
+		},
+		"dns": {
+			"$ref": "#/$defs/dns.schema.json"
+		},
+		"ntp": {
+			"$ref": "#/$defs/ntp.schema.json"
+		},
+		"certificate": {
+			"$ref": "#/$defs/certificate.schema.json"
+		},
+		"endpoints": {
+			"description": "List of endpoints.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/endpoint.schema.json"
+			}
+		},
+		"inbounds": {
+			"description": "List of inbounds.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/inbound.schema.json"
+			}
+		},
+		"outbounds": {
+			"description": "List of outbounds.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/outbound.schema.json"
+			}
+		},
+		"route": {
+			"$ref": "#/$defs/route.schema.json"
+		},
+		"services": {
+			"description": "List of services.",
+			"type": "array",
+			"items": {
+				"$ref": "#/$defs/service.schema.json"
+			}
+		},
+		"experimental": {
+			"$ref": "#/$defs/experimental.schema.json"
+		}
+	},
+	"$defs": {
+		"types/string-or-array.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"$comment": "singbox allows using single string for array types if there is only one element.\n\nThis type is to allow the behavior.",
+			"oneOf": [
+				{
+					"type": "string"
+				},
+				{
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				}
+			]
+		},
+		"certificate.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"store": {
+					"description": "🆕 Since sing-box 1.12.0\n\nThe default X509 trusted CA certificate list.\n\n- `system` (default): System trusted CA certificates\n- `mozilla`: Mozilla Included List with China CA certificates removed\n- `none`: Empty list",
+					"type": "string",
+					"enum": ["system", "mozilla", "none"]
+				},
+				"certificate": {
+					"description": "The certificate line array to trust, in PEM format.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"certificate_path": {
+					"description": "The paths to certificates to trust, in PEM format.\n\nWill be automatically reloaded if file modified.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"certificate_directory_path": {
+					"description": "The directory path to search for certificates to trust, in PEM format.\n\nWill be automatically reloaded if file modified.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				}
+			}
+		},
+		"dns/fakeip.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"description": "Enable FakeIP service.",
+					"type": "boolean"
+				},
+				"inet4_range": {
+					"description": "IPv4 address range for FakeIP.",
+					"type": "string",
+					"pattern": "(\\d{1,3}(\\.\\d{1,3}){3})(\\/\\d{1,2})?"
+				},
+				"inet6_range": {
+					"description": "IPv6 address range for FakeIP.",
+					"type": "string",
+					"pattern": "([a-fA-F0-9:]+)(\\/\\d{1,3})?"
+				}
+			}
+		},
+		"dns/rule_action.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"oneOf": [
+				{
+					"if": {
+						"required": ["action"],
+						"properties": {
+							"action": {
+								"type": "string"
+							}
+						}
+					},
+					"then": {
+						"properties": {
+							"action": {
+								"const": "route"
+							}
+						}
+					},
+					"required": ["server"],
+					"properties": {
+						"server": {
+							"description": "Tag of target server.",
+							"type": "string"
+						},
+						"strategy": {
+							"description": "🆕 Since sing-box 1.12.0\n\nSet domain strategy for this query.",
+							"type": "string",
+							"enum": ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"]
+						},
+						"disable_cache": {
+							"description": "Disable cache and save cache in this query.",
+							"type": "boolean"
+						},
+						"rewrite_ttl": {
+							"description": "Rewrite TTL in DNS responses.",
+							"type": "integer"
+						},
+						"client_subnet": {
+							"description": "Append a `edns0-subnet` OPT extra record with the specified IP prefix to every query by default.\n\nIf value is an IP address instead of prefix, `/32` or `/128` will be appended automatically.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "route-options"
+						},
+						"disable_cache": {
+							"description": "Disable cache and save cache in this query.",
+							"type": "boolean"
+						},
+						"rewrite_ttl": {
+							"description": "Rewrite TTL in DNS responses.",
+							"type": "integer"
+						},
+						"client_subnet": {
+							"description": "Append a `edns0-subnet` OPT extra record with the specified IP prefix to every query by default.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "reject"
+						},
+						"method": {
+							"description": "Reject method.\n\n- `default`: Reply with REFUSED.\n- `drop`: Drop the request.\n\n`default` will be used by default.",
+							"type": "string",
+							"enum": ["default", "drop"]
+						},
+						"no_drop": {
+							"description": "If not enabled, `method` will be temporarily overwritten to `drop` after 50 triggers in 30s.\n\nNot available when `method` is set to drop.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "predefined"
+						},
+						"rcode": {
+							"description": "🆕 Since sing-box 1.12.0\n\nThe response code.\n\n`NOERROR` will be used by default.",
+							"type": "string",
+							"enum": [
+								"NOERROR",
+								"FORMERR",
+								"SERVFAIL",
+								"NXDOMAIN",
+								"NOTIMP",
+								"REFUSED"
+							]
+						},
+						"answer": {
+							"description": "List of text DNS record to respond as answers.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"ns": {
+							"description": "List of text DNS record to respond as name servers.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"extra": {
+							"description": "List of text DNS record to respond as extra records.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					}
+				}
+			]
+		},
+		"dns/rule.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"oneOf": [
+				{
+					"$ref": "#/$defs/dns~1rule.schema.json/$defs/defaultDnsRule"
+				},
+				{
+					"$ref": "#/$defs/dns~1rule.schema.json/$defs/logicalDnsRule"
+				}
+			],
+			"$defs": {
+				"defaultDnsRule": {
+					"type": "object",
+					"allOf": [
+						{
+							"$ref": "#/$defs/dns~1rule_action.schema.json"
+						}
+					],
+					"if": {
+						"required": ["action"],
+						"properties": {
+							"action": {
+								"not": {
+									"const": "route"
+								}
+							}
+						}
+					},
+					"then": {
+						"properties": {
+							"server": {
+								"description": "Deprecated in sing-box 1.11.0. Moved to DNS Rule Action.",
+								"deprecated": true,
+								"type": "string"
+							},
+							"disable_cache": {
+								"description": "Deprecated in sing-box 1.11.0. Moved to DNS Rule Action.",
+								"deprecated": true,
+								"type": "boolean"
+							},
+							"rewrite_ttl": {
+								"description": "Deprecated in sing-box 1.11.0. Moved to DNS Rule Action.",
+								"deprecated": true,
+								"type": "integer"
+							},
+							"client_subnet": {
+								"description": "Deprecated in sing-box 1.11.0. Moved to DNS Rule Action.",
+								"deprecated": true,
+								"type": "string"
+							}
+						}
+					},
+					"properties": {
+						"inbound": {
+							"description": "Tags of Inbound.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"ip_version": {
+							"description": "4 (A DNS query) or 6 (AAAA DNS query).\n\nNot limited if empty.",
+							"type": "integer",
+							"enum": [4, 6]
+						},
+						"query_type": {
+							"description": "DNS query type. Values can be integers or type name strings.",
+							"oneOf": [
+								{
+									"type": "string"
+								},
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"oneOf": [
+											{
+												"type": "string"
+											},
+											{
+												"type": "integer"
+											}
+										]
+									}
+								}
+							]
+						},
+						"network": {
+							"description": "`tcp` or `udp`.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"auth_user": {
+							"description": "Username, see each inbound for details.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"protocol": {
+							"description": "Sniffed protocol.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain": {
+							"description": "Match full domain.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_suffix": {
+							"description": "Match domain suffix.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_keyword": {
+							"description": "Match domain using keyword.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_regex": {
+							"description": "Match domain using regular expression.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"geosite": {
+							"description": "Match geosite.\n\nDeprecated in sing-box 1.8.0.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_geoip": {
+							"description": "Match source geoip.\n\nDeprecated in sing-box 1.8.0.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_ip_cidr": {
+							"description": "Match source IP CIDR.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_ip_is_private": {
+							"description": "🆕 Since sing-box 1.8.0\n\nMatch non-public source IP.",
+							"type": "boolean"
+						},
+						"ip_cidr": {
+							"description": "🆕 Since sing-box 1.9.0\n\nMatch IP CIDR with query response.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"ip_is_private": {
+							"description": "🆕 Since sing-box 1.9.0\n\nMatch private IP with query response.",
+							"type": "boolean"
+						},
+						"ip_accept_any": {
+							"description": "🆕 Since sing-box 1.12.0\n\nMatch any IP with query response.",
+							"type": "boolean"
+						},
+						"source_port": {
+							"description": "Match source port.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"source_port_range": {
+							"description": "Match source port range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"port": {
+							"description": "Match port.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"port_range": {
+							"description": "Match port range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_name": {
+							"description": "> Only supported on Linux, Windows, and macOS.\n\nMatch process name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_path": {
+							"description": "> Only supported on Linux, Windows, and macOS.\n\nMatch process path.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_path_regex": {
+							"description": "🆕 Since sing-box 1.10.0\n\n> Only supported on Linux, Windows, and macOS.\n\nMatch process path using regular expression.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"package_name": {
+							"description": "Match android package name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"user": {
+							"description": "> Only supported on Linux.\n\nMatch user name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"user_id": {
+							"description": "> Only supported on Linux.\n\nMatch user id.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"clash_mode": {
+							"description": "Match Clash mode.",
+							"type": "string"
+						},
+						"network_type": {
+							"description": "🆕 Since sing-box 1.11.0\n\n> Only supported in graphical clients on Android and Apple platforms.\n\nMatch network type.\n\nAvailable values: `wifi`, `cellular`, `ethernet` and `other`.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"network_is_expensive": {
+							"description": "🆕 Since sing-box 1.11.0\n\n> Only supported in graphical clients on Android and Apple platforms.\n\nMatch if network is considered Metered (on Android) or considered expensive.",
+							"type": "boolean"
+						},
+						"network_is_constrained": {
+							"description": "🆕 Since sing-box 1.11.0\n\n> Only supported in graphical clients on Apple platforms.\n\nMatch if network is in Low Data Mode.",
+							"type": "boolean"
+						},
+						"wifi_ssid": {
+							"description": "> Only supported in graphical clients on Android and Apple platforms.\n\nMatch WiFi SSID.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"wifi_bssid": {
+							"description": "> Only supported in graphical clients on Android and Apple platforms.\n\nMatch WiFi BSSID.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"rule_set": {
+							"description": "🆕 Since sing-box 1.8.0\n\nMatch rule-set.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"rule_set_ipcidr_match_source": {
+							"description": "🆕 Since sing-box 1.9.0\n\nDeprecated in sing-box 1.10.0. Use `rule_set_ip_cidr_match_source` instead.",
+							"deprecated": true,
+							"type": "boolean"
+						},
+						"rule_set_ip_cidr_match_source": {
+							"description": "🆕 Since sing-box 1.10.0\n\nMake `ip_cidr` rule items in rule-sets match the source IP.",
+							"type": "boolean"
+						},
+						"rule_set_ip_cidr_accept_empty": {
+							"description": "🆕 Since sing-box 1.10.0\n\nMake `ip_cidr` rules in rule-sets accept empty query response.",
+							"type": "boolean"
+						},
+						"invert": {
+							"description": "Invert match result.",
+							"type": "boolean"
+						},
+						"outbound": {
+							"description": "Deprecated in sing-box 1.12.0.\n\nMatch outbound.\n\n`any` can be used as a value to match any outbound.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"action": {
+							"description": "See DNS Rule Actions for details.",
+							"type": "string",
+							"enum": ["route", "route-options", "reject", "predefined"]
+						}
+					}
+				},
+				"logicalDnsRule": {
+					"type": "object",
+					"allOf": [
+						{
+							"$ref": "#/$defs/dns~1rule_action.schema.json"
+						}
+					],
+					"required": ["type", "mode", "rules"],
+					"properties": {
+						"type": {
+							"const": "logical"
+						},
+						"mode": {
+							"description": "`and` or `or`",
+							"type": "string",
+							"enum": ["and", "or"]
+						},
+						"rules": {
+							"description": "Included rules.",
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/dns~1rule.schema.json/$defs/defaultDnsRule"
+							}
+						},
+						"action": {
+							"description": "See DNS Rule Actions for details.",
+							"type": "string",
+							"enum": ["route", "route-options", "reject", "predefined"]
+						}
+					}
+				}
+			}
+		},
+		"dns/server/legacy.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"required": ["address"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": ""
+				},
+				"address": {
+					"description": "The address of the dns server.",
+					"type": "string",
+					"pattern": "local|\\d{1,3}(\\.\\d{1,3}){3}|((tcp|udp|)://\\d{1,3}(\\.\\d{1,3}){3})|(tls|https|quic|h3)://([a-z0-9.-]+)(/.*)?|(rcode://(success|format_error|server_failure|name_error|not_implemented|refused))|dhcp://(auto|en\\d+)|fakeip"
+				},
+				"address_resolver": {
+					"description": "Required if address contains domain.Tag of a another server to resolve the domain name in the address.",
+					"type": "string"
+				},
+				"address_strategy": {
+					"description": "The domain strategy for resolving the domain name in the address.",
+					"type": "string",
+					"enum": ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"]
+				},
+				"strategy": {
+					"description": "Default domain strategy for resolving the domain names.",
+					"type": "string",
+					"enum": ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"]
+				},
+				"detour": {
+					"description": "Tag of an outbound for connecting to the dns server.",
+					"type": "string"
+				},
+				"client_subnet": {
+					"description": "Append a `edns0-subnet` OPT extra record with the specified IP prefix to every query by default.\n\nIf value is an IP address instead of prefix, `/32` or `/128` will be appended automatically.\n\nCan be overrides by `rules.[].client_subnet`.\n\nWill overrides `dns.client_subnet`.",
+					"type": "string",
+					"pattern": "(\\d{1,3}(\\.\\d{1,3}){3}|([a-fA-F0-9:]+))(\\/\\d{1,3})?"
+				}
+			}
+		},
+		"shared/dial.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"properties": {
+				"detour": {
+					"description": "The tag of the upstream outbound.\n\nIf enabled, all other fields will be ignored.",
+					"type": "string"
+				},
+				"bind_interface": {
+					"description": "The network interface to bind to.",
+					"type": "string"
+				},
+				"inet4_bind_address": {
+					"description": "The IPv4 address to bind to.",
+					"type": "string"
+				},
+				"inet6_bind_address": {
+					"description": "The IPv6 address to bind to.",
+					"type": "string"
+				},
+				"routing_mark": {
+					"description": "Set netfilter routing mark.\n\nIntegers (e.g. `1234`) and string hexadecimals (e.g. `\"0x1234\"`) are supported.",
+					"oneOf": [
+						{
+							"type": "integer",
+							"maximum": 4294967295,
+							"minimum": 0
+						},
+						{
+							"type": "string",
+							"pattern": "0x[0-9a-fA-F]+"
+						}
+					]
+				},
+				"reuse_addr": {
+					"description": "Reuse listener address.",
+					"type": "boolean"
+				},
+				"netns": {
+					"description": "> Only supported on Linux.\n\nSet network namespace, name or path.",
+					"type": "string"
+				},
+				"connect_timeout": {
+					"description": "Connect timeout, in golang's Duration format.\n\nA duration string is a possibly signed sequence of\ndecimal numbers, each with optional fraction and a unit suffix,\nsuch as \"300ms\", \"-1.5h\" or \"2h45m\".\nValid time units are \"ns\", \"us\" (or \"µs\"), \"ms\", \"s\", \"m\", \"h\".",
+					"type": "string"
+				},
+				"tcp_fast_open": {
+					"description": "Enable TCP Fast Open.",
+					"type": "boolean"
+				},
+				"tcp_multi_path": {
+					"description": "Enable TCP Multi Path.",
+					"type": "boolean"
+				},
+				"udp_fragment": {
+					"description": "Enable UDP fragmentation.",
+					"type": "boolean"
+				},
+				"domain_resolver": {
+					"description": "Set domain resolver to use for resolving domain names.\n\nThis option uses the same format as the [route DNS rule action](/configuration/dns/rule_action/#route) without the `action` field.\n\nSetting this option directly to a string is equivalent to setting `server` of this options.\n\n| Outbound/Endpoints | Effected domains         |\n|--------------------|--------------------------|\n| `direct`           | Domain in request        | \n| others             | Domain in server address |",
+					"type": "string"
+				},
+				"network_strategy": {
+					"description": "Strategy for selecting network interfaces.\n\nAvailable values:\n\n- `default` (default): Connect to default network or networks specified in `network_type` sequentially.\n- `hybrid`: Connect to all networks or networks specified in `network_type` concurrently.\n- `fallback`: Connect to default network or preferred networks specified in `network_type` concurrently, and try fallback networks when unavailable or timeout.\n\nFor fallback, when preferred interfaces fails or times out,\nit will enter a 15s fast fallback state (Connect to all preferred and fallback networks concurrently),\nand exit immediately if preferred networks recover.\n\nConflicts with `bind_interface`, `inet4_bind_address` and `inet6_bind_address`.",
+					"type": "string"
+				},
+				"network_type": {
+					"description": "Network types to use when using `default` or `hybrid` network strategy or\npreferred network types to use when using `fallback` network strategy.\n\nAvailable values: `wifi`, `cellular`, `ethernet`, `other`.\n\nDevice's default network is used by default.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"fallback_network_type": {
+					"description": "Fallback network types when preferred networks are unavailable or timeout when using `fallback` network strategy.\n\nAll other networks expect preferred are used by default.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"fallback_delay": {
+					"description": "The length of time to wait before spawning a RFC 6555 Fast Fallback connection.\n\nFor `domain_strategy`, is the amount of time to wait for connection to succeed before assuming\nthat IPv4/IPv6 is misconfigured and falling back to other type of addresses.\n\nFor `network_strategy`, is the amount of time to wait for connection to succeed before falling\nback to other interfaces.\n\nOnly take effect when `domain_strategy` or `network_strategy` is set.\n\n`300ms` is used by default.",
+					"type": "string"
+				},
+				"domain_strategy": {
+					"description": "Available values: `prefer_ipv4`, `prefer_ipv6`, `ipv4_only`, `ipv6_only`.\n\nIf set, the requested domain name will be resolved to IP before connect.\n\n| Outbound | Effected domains         | Fallback Value                            |\n|----------|--------------------------|-------------------------------------------|\n| `direct` | Domain in request        | Take `inbound.domain_strategy` if not set | \n| others   | Domain in server address | /                                         |\n",
+					"deprecated": true,
+					"type": "string"
+				}
+			}
+		},
+		"dns/server/local.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "local"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"dns/server/hosts.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "hosts"
+				},
+				"path": {
+					"description": "List of paths to hosts files.\n\n`/etc/hosts` is used by default.\n\n`C:\\Windows\\System32\\Drivers\\etc\\hosts` is used by default on Windows.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"predefined": {
+					"description": "Predefined hosts.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				}
+			}
+		},
+		"dns/server/tcp.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["server"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "tcp"
+						},
+						"server": {
+							"description": "The address of the DNS server.\n\nIf domain name is used, `domain_resolver` must also be set to resolve IP address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The port of the DNS server.\n\n`53` will be used by default.",
+							"default": 53,
+							"type": "integer"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"dns/server/udp.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["server"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "udp"
+						},
+						"server": {
+							"description": "The address of the DNS server.\n\nIf domain name is used, `domain_resolver` must also be set to resolve IP address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The port of the DNS server.\n\n`53` will be used by default.",
+							"default": 53,
+							"type": "integer"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"shared/tls-outbound.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"description": "Enable TLS.",
+					"type": "boolean"
+				},
+				"disable_sni": {
+					"description": "Do not send server name in ClientHello.",
+					"type": "boolean"
+				},
+				"server_name": {
+					"description": "Used to verify the hostname on the returned certificates unless insecure is given.\n\nIt is also included in the client's handshake to support virtual hosting unless it is an IP address.",
+					"type": "string"
+				},
+				"insecure": {
+					"description": "Accepts any server certificate.",
+					"type": "boolean"
+				},
+				"alpn": {
+					"description": "List of supported application level protocols, in order of preference.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"min_version": {
+					"description": "The minimum TLS version that is acceptable.\n\nBy default, TLS 1.2 is used when acting as a client.",
+					"type": "string",
+					"enum": ["1.0", "1.1", "1.2", "1.3"]
+				},
+				"max_version": {
+					"description": "The maximum TLS version that is acceptable.\n\nBy default, the maximum version is currently TLS 1.3.",
+					"type": "string",
+					"enum": ["1.0", "1.1", "1.2", "1.3"]
+				},
+				"cipher_suites": {
+					"description": "A list of enabled TLS 1.0–1.2 cipher suites. The order of the list is ignored. Note that TLS 1.3 cipher suites are not configurable.",
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"TLS_RSA_WITH_AES_128_CBC_SHA",
+							"TLS_RSA_WITH_AES_256_CBC_SHA",
+							"TLS_RSA_WITH_AES_128_GCM_SHA256",
+							"TLS_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_AES_128_GCM_SHA256",
+							"TLS_AES_256_GCM_SHA384",
+							"TLS_CHACHA20_POLY1305_SHA256",
+							"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+							"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+							"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+							"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+							"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+							"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+							"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+						]
+					}
+				},
+				"certificate": {
+					"description": "The server certificate line array, in PEM format.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"certificate_path": {
+					"description": "The path to the server certificate, in PEM format.\n\nWill be automatically reloaded if file modified.",
+					"type": "string"
+				},
+				"fragment": {
+					"description": "🆕 Since sing-box 1.12.0\n\nFragment TLS handshakes to bypass firewalls.",
+					"type": "boolean"
+				},
+				"fragment_fallback_delay": {
+					"description": "🆕 Since sing-box 1.12.0\n\nThe fallback value used when TLS segmentation cannot automatically determine the wait time.\n\n`500ms` is used by default.",
+					"type": "string"
+				},
+				"record_fragment": {
+					"description": "🆕 Since sing-box 1.12.0\n\nFragment TLS handshake into multiple TLS records to bypass firewalls.",
+					"type": "boolean"
+				},
+				"ech": {
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"description": "Enable ECH.",
+							"type": "boolean"
+						},
+						"config": {
+							"description": "ECH configuration line array, in PEM format.\n\nIf empty, load from DNS will be attempted.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"config_path": {
+							"description": "The path to ECH configuration, in PEM format.\n\nIf empty, load from DNS will be attempted.",
+							"type": "string"
+						},
+						"pq_signature_schemes_enabled": {
+							"description": "Deprecated in sing-box 1.12.0.",
+							"deprecated": true,
+							"type": "boolean"
+						},
+						"dynamic_record_sizing_disabled": {
+							"description": "Deprecated in sing-box 1.12.0.",
+							"deprecated": true,
+							"type": "boolean"
+						}
+					}
+				},
+				"utls": {
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"description": "Enable uTLS.",
+							"type": "boolean"
+						},
+						"fingerprint": {
+							"description": "uTLS fingerprint.\n\nChrome fingerprint will be used if empty.",
+							"type": "string",
+							"enum": [
+								"chrome",
+								"firefox",
+								"edge",
+								"safari",
+								"360",
+								"qq",
+								"ios",
+								"android",
+								"random",
+								"randomized"
+							]
+						}
+					}
+				},
+				"reality": {
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"description": "Enable REALITY.",
+							"type": "boolean"
+						},
+						"public_key": {
+							"description": "Public key, generated by `sing-box generate reality-keypair`.",
+							"type": "string"
+						},
+						"short_id": {
+							"description": "A hexadecimal string with zero to eight digits.",
+							"type": "string"
+						}
+					}
+				}
+			}
+		},
+		"dns/server/tls.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["server"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "tls"
+						},
+						"server": {
+							"description": "The address of the DNS server.\n\nIf domain name is used, `domain_resolver` must also be set to resolve IP address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The port of the DNS server.\n\n`853` will be used by default.",
+							"default": 853,
+							"type": "integer"
+						},
+						"tls": {
+							"description": "TLS configuration.",
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"dns/server/quic.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["server"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "quic"
+						},
+						"server": {
+							"description": "The address of the DNS server.\n\nIf domain name is used, `domain_resolver` must also be set to resolve IP address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The port of the DNS server.\n\n`853` will be used by default.",
+							"default": 853,
+							"type": "integer"
+						},
+						"tls": {
+							"description": "TLS configuration.",
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"dns/server/https.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["server"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "https"
+						},
+						"server": {
+							"description": "The address of the DNS server.\n\nIf domain name is used, `domain_resolver` must also be set to resolve IP address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The port of the DNS server.\n\n`443` will be used by default.",
+							"default": 443,
+							"type": "integer"
+						},
+						"path": {
+							"description": "The path of the DNS server.\n\n`/dns-query` will be used by default.",
+							"default": "/dns-query",
+							"type": "string"
+						},
+						"headers": {
+							"description": "Additional headers to be sent to the DNS server.",
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							}
+						},
+						"tls": {
+							"description": "TLS configuration.",
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"dns/server/h3.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["server"],
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "h3"
+						},
+						"server": {
+							"description": "The address of the DNS server.\n\nIf domain name is used, `domain_resolver` must also be set to resolve IP address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The port of the DNS server.\n\n`443` will be used by default.",
+							"default": 443,
+							"type": "integer"
+						},
+						"path": {
+							"description": "The path of the DNS server.\n\n`/dns-query` will be used by default.",
+							"default": "/dns-query",
+							"type": "string"
+						},
+						"headers": {
+							"description": "Additional headers to be sent to the DNS server.",
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							}
+						},
+						"tls": {
+							"description": "TLS configuration.",
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"dns/server/dhcp.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"properties": {
+						"type": {
+							"type": "string",
+							"const": "dhcp"
+						},
+						"interface": {
+							"description": "Interface name to listen on.\n\nThe default interface will be used by default.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"dns/server/fakeip.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "fakeip"
+				},
+				"inet4_range": {
+					"description": "IPv4 address range for FakeIP.",
+					"default": "198.18.0.0/15",
+					"type": "string"
+				},
+				"inet6_range": {
+					"description": "IPv6 address range for FakeIP.",
+					"default": "fc00::/18",
+					"type": "string"
+				}
+			}
+		},
+		"dns/server/tailscale.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"required": ["endpoint"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "tailscale"
+				},
+				"endpoint": {
+					"description": "The tag of the Tailscale Endpoint.",
+					"type": "string"
+				},
+				"accept_default_resolvers": {
+					"description": "Indicates whether default DNS resolvers should be accepted for fallback queries in addition to MagicDNS.\n\nIf not enabled, `NXDOMAIN` will be returned for non-Tailscale domain queries.",
+					"type": "boolean"
+				}
+			}
+		},
+		"dns/server/resolved.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"required": ["service"],
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "resolved"
+				},
+				"service": {
+					"description": "The tag of the Resolved Service.",
+					"type": "string"
+				},
+				"accept_default_resolvers": {
+					"description": "Indicates whether the default DNS resolvers should be accepted for fallback queries in addition to matching domains.\n\nSpecifically, default DNS resolvers are DNS servers that have `SetLinkDefaultRoute` or `SetLinkDomains ~.` set.\n\nIf not enabled, `NXDOMAIN` will be returned for requests that do not match search or match domains.",
+					"type": "boolean"
+				}
+			}
+		},
+		"dns/server.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"description": "The type of the DNS server.",
+							"type": "string",
+							"enum": [
+								"",
+								"local",
+								"hosts",
+								"tcp",
+								"udp",
+								"tls",
+								"quic",
+								"https",
+								"h3",
+								"dhcp",
+								"fakeip",
+								"tailscale",
+								"resolved"
+							]
+						},
+						"tag": {
+							"description": "The tag of the DNS server.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"oneOf": [
+						{
+							"$ref": "#/$defs/dns~1server~1legacy.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1local.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1hosts.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1tcp.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1udp.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1tls.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1quic.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1https.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1h3.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1dhcp.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1fakeip.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1tailscale.schema.json"
+						},
+						{
+							"$ref": "#/$defs/dns~1server~1resolved.schema.json"
+						}
+					]
+				}
+			]
+		},
+		"dns.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"servers": {
+					"description": "List of DNS Server",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/dns~1server.schema.json"
+					}
+				},
+				"rules": {
+					"description": "List of DNS Rule",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/dns~1rule.schema.json"
+					}
+				},
+				"final": {
+					"description": "Default dns server tag. The first server will be used if empty.",
+					"type": "string"
+				},
+				"strategy": {
+					"description": "Default domain strategy for resolving the domain names. Take no effect if server.strategy is set.",
+					"enum": ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"]
+				},
+				"disable_cache": {
+					"description": "Disable dns cache.",
+					"type": "boolean"
+				},
+				"disable_expire": {
+					"description": "Disable dns cache expire.",
+					"type": "boolean"
+				},
+				"independent_cache": {
+					"description": "Make each DNS server's cache independent for special purposes. If enabled, will slightly degrade performance.",
+					"type": "boolean"
+				},
+				"cache_capacity": {
+					"description": "LRU cache capacity.\nValue less than 1024 will be ignored.",
+					"type": "integer",
+					"minimum": 1024
+				},
+				"reverse_mapping": {
+					"description": "Stores a reverse mapping of IP addresses after responding to a DNS query in order to provide domain names when routing.\nSince this process relies on the act of resolving domain names by an application before making a request, it can be problematic in environments such as macOS, where DNS is proxied and cached by the system.",
+					"type": "boolean"
+				},
+				"client_subnet": {
+					"description": "Append a edns0-subnet OPT extra record with the specified IP prefix to every query by default.\nIf value is an IP address instead of prefix, /32 or /128 will be appended automatically.\nCan be overrides by servers.[].client_subnet or rules.[].client_subnet.",
+					"type": "string",
+					"pattern": "(\\d{1,3}(\\.\\d{1,3}){3}|([a-fA-F0-9:]+))(\\/\\d{1,3})?"
+				},
+				"fakeip": {
+					"$ref": "#/$defs/dns~1fakeip.schema.json"
+				}
+			}
+		},
+		"endpoint/wireguard.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["type", "address", "private_key", "peers"],
+					"properties": {
+						"type": {
+							"const": "wireguard"
+						},
+						"tag": {
+							"description": "The tag of the endpoint.",
+							"type": "string"
+						},
+						"system": {
+							"description": "Use system interface.\n\nRequires privilege and cannot conflict with exists system interfaces.",
+							"type": "boolean"
+						},
+						"name": {
+							"description": "Custom interface name for system interface.",
+							"type": "string"
+						},
+						"mtu": {
+							"description": "WireGuard MTU.\n\n`1408` will be used by default.",
+							"default": 1408,
+							"type": "integer"
+						},
+						"address": {
+							"description": "List of IP (v4 or v6) address prefixes to be assigned to the interface.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"private_key": {
+							"description": "WireGuard private key (base64-encoded).",
+							"type": "string"
+						},
+						"listen_port": {
+							"description": "WireGuard listen port.",
+							"type": "integer"
+						},
+						"peers": {
+							"description": "List of WireGuard peers.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["public_key", "allowed_ips"],
+								"properties": {
+									"address": {
+										"description": "WireGuard peer address.",
+										"type": "string"
+									},
+									"port": {
+										"description": "WireGuard peer port.",
+										"type": "integer"
+									},
+									"public_key": {
+										"description": "WireGuard peer public key.",
+										"type": "string"
+									},
+									"pre_shared_key": {
+										"description": "WireGuard peer pre-shared key.",
+										"type": "string"
+									},
+									"allowed_ips": {
+										"description": "WireGuard allowed IPs.",
+										"$ref": "#/$defs/types~1string-or-array.schema.json"
+									},
+									"persistent_keepalive_interval": {
+										"description": "WireGuard persistent keepalive interval, in seconds.\n\nDisabled by default.",
+										"type": "integer"
+									},
+									"reserved": {
+										"description": "WireGuard reserved field bytes.",
+										"type": "array",
+										"maxItems": 3,
+										"minItems": 3,
+										"items": {
+											"type": "integer"
+										}
+									}
+								}
+							}
+						},
+						"udp_timeout": {
+							"description": "UDP NAT expiration time.\n\n`5m` will be used by default.",
+							"default": "5m",
+							"type": "string"
+						},
+						"workers": {
+							"description": "WireGuard worker count.\n\nCPU count is used by default.",
+							"type": "integer"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"endpoint/tailscale.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "tailscale"
+						},
+						"tag": {
+							"description": "The tag of the endpoint.",
+							"type": "string"
+						},
+						"state_directory": {
+							"description": "The directory where the Tailscale state is stored.\n\n`tailscale` is used by default.",
+							"default": "tailscale",
+							"type": "string"
+						},
+						"auth_key": {
+							"description": "The auth key to create the node. If the node is already created (from state previously stored), then this field is not used.",
+							"type": "string"
+						},
+						"control_url": {
+							"description": "The coordination server URL.\n\n`https://controlplane.tailscale.com` is used by default.",
+							"default": "https://controlplane.tailscale.com",
+							"type": "string"
+						},
+						"ephemeral": {
+							"description": "Indicates whether the instance should register as an Ephemeral node.",
+							"type": "boolean"
+						},
+						"hostname": {
+							"description": "The hostname of the node.\n\nSystem hostname is used by default.",
+							"type": "string"
+						},
+						"accept_routes": {
+							"description": "Indicates whether the node should accept routes advertised by other nodes.",
+							"type": "boolean"
+						},
+						"exit_node": {
+							"description": "The exit node name or IP address to use.",
+							"type": "string"
+						},
+						"exit_node_allow_lan_access": {
+							"description": "Indicates whether locally accessible subnets should be routed directly or via the exit node.",
+							"type": "boolean"
+						},
+						"advertise_routes": {
+							"description": "CIDR prefixes to advertise into the Tailscale network as reachable through the current node.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"advertise_exit_node": {
+							"description": "Indicates whether the node should advertise itself as an exit node.",
+							"type": "boolean"
+						},
+						"udp_timeout": {
+							"description": "UDP NAT expiration time.\n\n`5m` will be used by default.",
+							"default": "5m",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"endpoint.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"description": "The type of the endpoint.",
+							"type": "string",
+							"enum": ["wireguard", "tailscale"]
+						},
+						"tag": {
+							"description": "The tag of the endpoint.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"oneOf": [
+						{
+							"$ref": "#/$defs/endpoint~1wireguard.schema.json"
+						},
+						{
+							"$ref": "#/$defs/endpoint~1tailscale.schema.json"
+						}
+					]
+				}
+			]
+		},
+		"experimental/cache-file.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"description": "Enable cache file.",
+					"type": "boolean"
+				},
+				"path": {
+					"description": "Path to the cache file.\n\n`cache.db` will be used if empty.",
+					"type": "string"
+				},
+				"cache_id": {
+					"description": "Identifier in the cache file.\n\nIf not empty, configuration specified data will use a separate store keyed by it.",
+					"type": "string"
+				},
+				"store_fakeip": {
+					"description": "Store fakeip in the cache file.",
+					"type": "boolean"
+				},
+				"store_rdrc": {
+					"description": "🆕 Since sing-box 1.9.0\n\nStore rejected DNS response cache in the cache file.",
+					"type": "boolean"
+				},
+				"rdrc_timeout": {
+					"description": "🆕 Since sing-box 1.9.0\n\nTimeout of rejected DNS response cache.\n\n`7d` is used by default.",
+					"type": "string"
+				}
+			}
+		},
+		"experimental/clash-api.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"external_controller": {
+					"description": "RESTful web API listening address. Clash API will be disabled if empty.",
+					"type": "string"
+				},
+				"external_ui": {
+					"description": "A relative path to the configuration directory or an absolute path to a directory in which you put some static web resource.",
+					"type": "string"
+				},
+				"external_ui_download_url": {
+					"description": "ZIP download URL for the external UI.",
+					"type": "string"
+				},
+				"external_ui_download_detour": {
+					"description": "The tag of the outbound to download the external UI.",
+					"type": "string"
+				},
+				"secret": {
+					"description": "Secret for the RESTful API.",
+					"type": "string"
+				},
+				"default_mode": {
+					"description": "Default mode in clash, `Rule` will be used if empty.",
+					"type": "string"
+				},
+				"access_control_allow_origin": {
+					"description": "🆕 Since sing-box 1.10.0\n\nCORS allowed origins, `*` will be used if empty.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"access_control_allow_private_network": {
+					"description": "🆕 Since sing-box 1.10.0\n\nAllow access from private network.",
+					"type": "boolean"
+				},
+				"store_mode": {
+					"description": "Deprecated in sing-box 1.8.0.",
+					"deprecated": true,
+					"type": "boolean"
+				},
+				"store_selected": {
+					"description": "Deprecated in sing-box 1.8.0.",
+					"deprecated": true,
+					"type": "boolean"
+				},
+				"store_fakeip": {
+					"description": "Deprecated in sing-box 1.8.0.",
+					"deprecated": true,
+					"type": "boolean"
+				},
+				"cache_file": {
+					"description": "Deprecated in sing-box 1.8.0.",
+					"deprecated": true,
+					"type": "string"
+				},
+				"cache_id": {
+					"description": "Deprecated in sing-box 1.8.0.",
+					"deprecated": true,
+					"type": "string"
+				}
+			}
+		},
+		"experimental/v2ray-api.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"listen": {
+					"description": "gRPC API listening address. V2Ray API will be disabled if empty.",
+					"type": "string"
+				},
+				"stats": {
+					"description": "Traffic statistics service settings.",
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"description": "Enable statistics service.",
+							"type": "boolean"
+						},
+						"inbounds": {
+							"description": "Inbound list to count traffic.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"outbounds": {
+							"description": "Outbound list to count traffic.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"users": {
+							"description": "User list to count traffic.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					}
+				}
+			}
+		},
+		"experimental.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"cache_file": {
+					"description": "🆕 Since sing-box 1.8.0\n\nCache file settings.",
+					"$ref": "#/$defs/experimental~1cache-file.schema.json"
+				},
+				"clash_api": {
+					"description": "Clash API settings.",
+					"$ref": "#/$defs/experimental~1clash-api.schema.json"
+				},
+				"v2ray_api": {
+					"description": "V2Ray API settings.",
+					"$ref": "#/$defs/experimental~1v2ray-api.schema.json"
+				}
+			}
+		},
+		"shared/listen.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"listen": {
+					"description": "Listen address.",
+					"type": "string"
+				},
+				"listen_port": {
+					"description": "Listen port.",
+					"type": "integer",
+					"maximum": 65535,
+					"minimum": 0
+				},
+				"bind_interface": {
+					"description": "🆕 Since sing-box 1.12.0\n\nThe network interface to bind to.",
+					"type": "string"
+				},
+				"routing_mark": {
+					"description": "🆕 Since sing-box 1.12.0\n\n> Only supported on Linux.\n\nSet netfilter routing mark.\n\nIntegers (e.g. `1234`) and string hexadecimals (e.g. `\"0x1234\"`) are supported.",
+					"oneOf": [
+						{
+							"type": "integer",
+							"maximum": 4294967295,
+							"minimum": 0
+						},
+						{
+							"type": "string",
+							"pattern": "^0x[0-9a-fA-F]+$"
+						}
+					]
+				},
+				"reuse_addr": {
+					"description": "🆕 Since sing-box 1.12.0\n\nReuse listener address.",
+					"type": "boolean"
+				},
+				"netns": {
+					"description": "🆕 Since sing-box 1.12.0\n\n> Only supported on Linux.\n\nSet network namespace, name or path.",
+					"type": "string"
+				},
+				"tcp_fast_open": {
+					"description": "Enable TCP Fast Open.",
+					"type": "boolean"
+				},
+				"tcp_multi_path": {
+					"description": "Enable TCP Multi Path.",
+					"type": "boolean"
+				},
+				"udp_fragment": {
+					"description": "Enable UDP fragmentation.",
+					"type": "boolean"
+				},
+				"udp_timeout": {
+					"description": "UDP NAT expiration time.\n\n`5m` will be used by default.",
+					"type": "string"
+				},
+				"detour": {
+					"description": "If set, connections will be forwarded to the specified inbound.\n\nRequires target inbound support.",
+					"type": "string"
+				},
+				"sniff": {
+					"description": "Enable sniffing.\n\nDeprecated in sing-box 1.11.0.",
+					"deprecated": true,
+					"type": "boolean"
+				},
+				"sniff_override_destination": {
+					"description": "Override the connection destination address with the sniffed domain.\n\nDeprecated in sing-box 1.11.0.",
+					"deprecated": true,
+					"type": "boolean"
+				},
+				"sniff_timeout": {
+					"description": "Timeout for sniffing.\n\n`300ms` is used by default.\n\nDeprecated in sing-box 1.11.0.",
+					"deprecated": true,
+					"type": "string"
+				},
+				"domain_strategy": {
+					"description": "If set, the requested domain name will be resolved to IP before routing.\n\nDeprecated in sing-box 1.11.0.",
+					"deprecated": true,
+					"type": "string",
+					"enum": ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"]
+				},
+				"udp_disable_domain_unmapping": {
+					"description": "If enabled, for UDP proxy requests addressed to a domain, the original packet address will be sent in the response instead of the mapped domain.\n\nDeprecated in sing-box 1.11.0.",
+					"deprecated": true,
+					"type": "boolean"
+				}
+			}
+		},
+		"inbound/direct.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "direct"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Listen network, one of `tcp` `udp`.\n\nBoth if empty.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"override_address": {
+							"description": "Override the connection destination address.",
+							"type": "string"
+						},
+						"override_port": {
+							"description": "Override the connection destination port.",
+							"type": "integer"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/mixed.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "mixed"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "SOCKS and HTTP users.\n\nNo authentication required if empty.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["username", "password"],
+								"properties": {
+									"username": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"set_system_proxy": {
+							"description": "> Only supported on Linux, Android, Windows, and macOS.\n\nAutomatically set system proxy configuration when start and clean up when stop.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/socks.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "socks"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "SOCKS users.\n\nNo authentication required if empty.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["username", "password"],
+								"properties": {
+									"username": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"shared/dns01_challenge.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"oneOf": [
+				{
+					"required": ["provider", "access_key_id", "access_key_secret"],
+					"properties": {
+						"provider": {
+							"const": "alidns"
+						},
+						"access_key_id": {
+							"description": "Alibaba Cloud access key ID.",
+							"type": "string"
+						},
+						"access_key_secret": {
+							"description": "Alibaba Cloud access key secret.",
+							"type": "string"
+						},
+						"region_id": {
+							"description": "Alibaba Cloud region ID.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"required": ["provider", "api_token"],
+					"properties": {
+						"provider": {
+							"const": "cloudflare"
+						},
+						"api_token": {
+							"description": "Cloudflare API token.",
+							"type": "string"
+						}
+					}
+				}
+			]
+		},
+		"shared/tls-inbound.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"description": "Enable TLS.",
+					"type": "boolean"
+				},
+				"server_name": {
+					"description": "Used to verify the hostname on the returned certificates unless insecure is given.\n\nIt is also included in the client's handshake to support virtual hosting unless it is an IP address.",
+					"type": "string"
+				},
+				"alpn": {
+					"description": "List of supported application level protocols, in order of preference.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"min_version": {
+					"description": "The minimum TLS version that is acceptable.\n\nBy default, TLS 1.0 is used when acting as a server.",
+					"type": "string",
+					"enum": ["1.0", "1.1", "1.2", "1.3"]
+				},
+				"max_version": {
+					"description": "The maximum TLS version that is acceptable.\n\nBy default, the maximum version is currently TLS 1.3.",
+					"type": "string",
+					"enum": ["1.0", "1.1", "1.2", "1.3"]
+				},
+				"cipher_suites": {
+					"description": "A list of enabled TLS 1.0–1.2 cipher suites. The order of the list is ignored. Note that TLS 1.3 cipher suites are not configurable.",
+					"type": "array",
+					"items": {
+						"type": "string",
+						"enum": [
+							"TLS_RSA_WITH_AES_128_CBC_SHA",
+							"TLS_RSA_WITH_AES_256_CBC_SHA",
+							"TLS_RSA_WITH_AES_128_GCM_SHA256",
+							"TLS_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_AES_128_GCM_SHA256",
+							"TLS_AES_256_GCM_SHA384",
+							"TLS_CHACHA20_POLY1305_SHA256",
+							"TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
+							"TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
+							"TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
+							"TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
+							"TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+							"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
+							"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+							"TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256",
+							"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256"
+						]
+					}
+				},
+				"certificate": {
+					"description": "The server certificate line array, in PEM format.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"certificate_path": {
+					"description": "The path to the server certificate, in PEM format.\n\nWill be automatically reloaded if file modified.",
+					"type": "string"
+				},
+				"key": {
+					"description": "The server private key line array, in PEM format.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"key_path": {
+					"description": "The path to the server private key, in PEM format.\n\nWill be automatically reloaded if file modified.",
+					"type": "string"
+				},
+				"acme": {
+					"type": "object",
+					"properties": {
+						"domain": {
+							"description": "List of domain.\n\nACME will be disabled if empty.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"data_directory": {
+							"description": "The directory to store ACME data.\n\n`$XDG_DATA_HOME/certmagic|$HOME/.local/share/certmagic` will be used if empty.",
+							"type": "string"
+						},
+						"default_server_name": {
+							"description": "Server name to use when choosing a certificate if the ClientHello's ServerName field is empty.",
+							"type": "string"
+						},
+						"email": {
+							"description": "The email address to use when creating or selecting an existing ACME server account.",
+							"type": "string"
+						},
+						"provider": {
+							"description": "The ACME CA provider to use.\n\n- `letsencrypt` (default): Let's Encrypt\n- `zerossl`: ZeroSSL\n- `https://...`: Custom",
+							"type": "string"
+						},
+						"disable_http_challenge": {
+							"description": "Disable all HTTP challenges.",
+							"type": "boolean"
+						},
+						"disable_tls_alpn_challenge": {
+							"description": "Disable all TLS-ALPN challenges.",
+							"type": "boolean"
+						},
+						"alternative_http_port": {
+							"description": "The alternate port to use for the ACME HTTP challenge.",
+							"type": "integer"
+						},
+						"alternative_tls_port": {
+							"description": "The alternate port to use for the ACME TLS-ALPN challenge.",
+							"type": "integer"
+						},
+						"external_account": {
+							"description": "EAB (External Account Binding) contains information necessary to bind or map an ACME account to some other account known by the CA.",
+							"type": "object",
+							"properties": {
+								"key_id": {
+									"description": "The key identifier.",
+									"type": "string"
+								},
+								"mac_key": {
+									"description": "The MAC key.",
+									"type": "string"
+								}
+							}
+						},
+						"dns01_challenge": {
+							"$ref": "#/$defs/shared~1dns01_challenge.schema.json"
+						}
+					}
+				},
+				"ech": {
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"description": "Enable ECH.",
+							"type": "boolean"
+						},
+						"key": {
+							"description": "ECH key line array, in PEM format.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"key_path": {
+							"description": "The path to ECH key, in PEM format.\n\nWill be automatically reloaded if file modified.",
+							"type": "string"
+						},
+						"pq_signature_schemes_enabled": {
+							"description": "Deprecated in sing-box 1.12.0.",
+							"deprecated": true,
+							"type": "boolean"
+						},
+						"dynamic_record_sizing_disabled": {
+							"description": "Deprecated in sing-box 1.12.0.",
+							"deprecated": true,
+							"type": "boolean"
+						}
+					}
+				},
+				"reality": {
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"description": "Enable REALITY.",
+							"type": "boolean"
+						},
+						"handshake": {
+							"description": "Handshake server address and Dial Fields.",
+							"type": "object",
+							"allOf": [
+								{
+									"required": ["server", "server_port"],
+									"properties": {
+										"server": {
+											"description": "Handshake server address.",
+											"type": "string"
+										},
+										"server_port": {
+											"description": "Handshake server port.",
+											"type": "integer"
+										}
+									}
+								},
+								{
+									"$ref": "#/$defs/shared~1dial.schema.json"
+								}
+							]
+						},
+						"private_key": {
+							"description": "Private key, generated by `sing-box generate reality-keypair`.",
+							"type": "string"
+						},
+						"short_id": {
+							"description": "A hexadecimal string with zero to eight digits.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"max_time_difference": {
+							"description": "The maximum time difference between the server and the client.\n\nCheck disabled if empty.",
+							"type": "string"
+						}
+					}
+				}
+			}
+		},
+		"inbound/http.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "http"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "HTTP users.\n\nNo authentication required if empty.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["username", "password"],
+								"properties": {
+									"username": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						},
+						"set_system_proxy": {
+							"description": "> Only supported on Linux, Android, Windows, and macOS.\n\nAutomatically set system proxy configuration when start and clean up when stop.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"shared/tcp-brutal.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"description": "Enable TCP Brutal congestion control algorithm.",
+					"type": "boolean"
+				},
+				"up_mbps": {
+					"description": "Upload bandwidth, in Mbps.",
+					"type": "integer"
+				},
+				"down_mbps": {
+					"description": "Download bandwidth, in Mbps.",
+					"type": "integer"
+				}
+			}
+		},
+		"shared/multiplex-inbound.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"description": "Enable multiplex support.",
+					"type": "boolean"
+				},
+				"padding": {
+					"description": "If enabled, non-padded connections will be rejected.",
+					"type": "boolean"
+				},
+				"brutal": {
+					"$ref": "#/$defs/shared~1tcp-brutal.schema.json"
+				}
+			}
+		},
+		"inbound/shadowsocks.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "method", "password"],
+					"properties": {
+						"type": {
+							"const": "shadowsocks"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Listen network, one of `tcp` `udp`.\n\nBoth if empty.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"method": {
+							"description": "Encryption method.",
+							"type": "string",
+							"enum": [
+								"2022-blake3-aes-128-gcm",
+								"2022-blake3-aes-256-gcm",
+								"2022-blake3-chacha20-poly1305",
+								"none",
+								"aes-128-gcm",
+								"aes-192-gcm",
+								"aes-256-gcm",
+								"chacha20-ietf-poly1305",
+								"xchacha20-ietf-poly1305"
+							]
+						},
+						"password": {
+							"description": "Password.",
+							"type": "string"
+						},
+						"users": {
+							"description": "Multi-user configuration.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["name", "password"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"destinations": {
+							"description": "Relay configuration.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["name", "server", "server_port", "password"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"server": {
+										"type": "string"
+									},
+									"server_port": {
+										"type": "integer"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"managed": {
+							"description": "Enable this when the inbound is managed by the SSM API for dynamic user.",
+							"type": "boolean"
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-inbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"shared/v2ray-transport.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"oneOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "http"
+						},
+						"host": {
+							"description": "List of host domain.\n\nThe client will choose randomly and the server will verify if not empty.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"path": {
+							"description": "Path of HTTP request.\n\nThe server will verify.",
+							"type": "string"
+						},
+						"method": {
+							"description": "Method of HTTP request.\n\nThe server will verify if not empty.",
+							"type": "string"
+						},
+						"headers": {
+							"description": "Extra headers of HTTP request.\n\nThe server will write in response if not empty.",
+							"type": "object",
+							"additionalProperties": {
+								"$ref": "#/$defs/types~1string-or-array.schema.json"
+							}
+						},
+						"idle_timeout": {
+							"description": "Idle timeout duration.\n\nZero is used by default.",
+							"type": "string"
+						},
+						"ping_timeout": {
+							"description": "Ping timeout duration.\n\nThe default timeout duration is 15 seconds.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "ws"
+						},
+						"path": {
+							"description": "Path of HTTP request.\n\nThe server will verify.",
+							"type": "string"
+						},
+						"headers": {
+							"description": "Extra headers of HTTP request.\n\nThe server will write in response if not empty.",
+							"type": "object",
+							"additionalProperties": {
+								"$ref": "#/$defs/types~1string-or-array.schema.json"
+							}
+						},
+						"max_early_data": {
+							"description": "Allowed payload size is in the request. Enabled if not zero.",
+							"type": "integer"
+						},
+						"early_data_header_name": {
+							"description": "Early data is sent in path instead of header by default.\n\nTo be compatible with Xray-core, set this to `Sec-WebSocket-Protocol`.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "quic"
+						}
+					}
+				},
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "grpc"
+						},
+						"service_name": {
+							"description": "Service name of gRPC.",
+							"type": "string"
+						},
+						"idle_timeout": {
+							"description": "Idle timeout duration.",
+							"type": "string"
+						},
+						"ping_timeout": {
+							"description": "Ping timeout duration.",
+							"type": "string"
+						},
+						"permit_without_stream": {
+							"description": "If enabled, the client transport sends keepalive pings even with no active connections.\n\nDisabled by default.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "httpupgrade"
+						},
+						"host": {
+							"description": "Host domain.\n\nThe server will verify if not empty.",
+							"type": "string"
+						},
+						"path": {
+							"description": "Path of HTTP request.\n\nThe server will verify.",
+							"type": "string"
+						},
+						"headers": {
+							"description": "Extra headers of HTTP request.\n\nThe server will write in response if not empty.",
+							"type": "object",
+							"additionalProperties": {
+								"$ref": "#/$defs/types~1string-or-array.schema.json"
+							}
+						}
+					}
+				}
+			]
+		},
+		"inbound/vmess.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "users"],
+					"properties": {
+						"type": {
+							"const": "vmess"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "VMess users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["uuid"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"uuid": {
+										"type": "string"
+									},
+									"alterId": {
+										"description": "0 to disable legacy protocol, > 0 to enable legacy protocol.",
+										"type": "integer"
+									}
+								}
+							}
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-inbound.schema.json"
+						},
+						"transport": {
+							"$ref": "#/$defs/shared~1v2ray-transport.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/trojan.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "users"],
+					"properties": {
+						"type": {
+							"const": "trojan"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "Trojan users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["password"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						},
+						"fallback": {
+							"description": "Fallback server configuration.",
+							"type": "object",
+							"properties": {
+								"server": {
+									"type": "string"
+								},
+								"server_port": {
+									"type": "integer"
+								}
+							}
+						},
+						"fallback_for_alpn": {
+							"description": "Fallback server configuration for specified ALPN.",
+							"type": "object",
+							"additionalProperties": {
+								"type": "object",
+								"properties": {
+									"server": {
+										"type": "string"
+									},
+									"server_port": {
+										"type": "integer"
+									}
+								}
+							}
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-inbound.schema.json"
+						},
+						"transport": {
+							"$ref": "#/$defs/shared~1v2ray-transport.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/naive.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "users"],
+					"properties": {
+						"type": {
+							"const": "naive"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Listen network, one of `tcp` `udp`.\n\nBoth if empty.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"users": {
+							"description": "Naive users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["username", "password"],
+								"properties": {
+									"username": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/hysteria.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "tls"],
+					"properties": {
+						"type": {
+							"const": "hysteria"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"up": {
+							"description": "Max upload bandwidth.\n\nFormat: `[Integer] [Unit]` e.g. `100 Mbps, 640 KBps, 2 Gbps`",
+							"type": "string"
+						},
+						"up_mbps": {
+							"description": "Max upload bandwidth in Mbps.",
+							"type": "integer"
+						},
+						"down": {
+							"description": "Max download bandwidth.\n\nFormat: `[Integer] [Unit]` e.g. `100 Mbps, 640 KBps, 2 Gbps`",
+							"type": "string"
+						},
+						"down_mbps": {
+							"description": "Max download bandwidth in Mbps.",
+							"type": "integer"
+						},
+						"obfs": {
+							"description": "Obfuscated password.",
+							"type": "string"
+						},
+						"users": {
+							"description": "Hysteria users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"auth": {
+										"description": "Authentication password, in base64.",
+										"type": "string"
+									},
+									"auth_str": {
+										"description": "Authentication password.",
+										"type": "string"
+									}
+								}
+							}
+						},
+						"recv_window_conn": {
+							"description": "The QUIC stream-level flow control window for receiving data.\n\n`15728640 (15 MB/s)` will be used if empty.",
+							"type": "integer"
+						},
+						"recv_window_client": {
+							"description": "The QUIC connection-level flow control window for receiving data.\n\n`67108864 (64 MB/s)` will be used if empty.",
+							"type": "integer"
+						},
+						"max_conn_client": {
+							"description": "The maximum number of QUIC concurrent bidirectional streams that a peer is allowed to open.\n\n`1024` will be used if empty.",
+							"type": "integer"
+						},
+						"disable_mtu_discovery": {
+							"description": "Disables Path MTU Discovery (RFC 8899).",
+							"type": "boolean"
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/shadowtls.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "shadowtls"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"version": {
+							"description": "ShadowTLS protocol version.\n\n1 is used by default.",
+							"type": "integer",
+							"enum": [1, 2, 3]
+						},
+						"password": {
+							"description": "ShadowTLS password.\n\nOnly available in the ShadowTLS protocol 2.",
+							"type": "string"
+						},
+						"users": {
+							"description": "ShadowTLS users.\n\nOnly available in the ShadowTLS protocol 3.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["password"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"handshake": {
+							"description": "Handshake server address and Dial Fields.",
+							"type": "object",
+							"allOf": [
+								{
+									"properties": {
+										"server": {
+											"description": "Handshake server address.",
+											"type": "string"
+										},
+										"server_port": {
+											"description": "Handshake server port.",
+											"type": "integer"
+										}
+									}
+								},
+								{
+									"$ref": "#/$defs/shared~1dial.schema.json"
+								}
+							]
+						},
+						"handshake_for_server_name": {
+							"description": "Handshake server address for specific server name.\n\nOnly available in the ShadowTLS protocol 2/3.",
+							"type": "object",
+							"additionalProperties": {
+								"type": "object",
+								"allOf": [
+									{
+										"properties": {
+											"server": {
+												"type": "string"
+											},
+											"server_port": {
+												"type": "integer"
+											}
+										}
+									},
+									{
+										"$ref": "#/$defs/shared~1dial.schema.json"
+									}
+								]
+							}
+						},
+						"strict_mode": {
+							"description": "ShadowTLS strict mode.\n\nOnly available in the ShadowTLS protocol 3.",
+							"type": "boolean"
+						},
+						"wildcard_sni": {
+							"description": "🆕 Since sing-box 1.12.0\n\nShadowTLS wildcard SNI mode.\n\nOnly available in the ShadowTLS protocol 3.",
+							"type": "string",
+							"enum": ["off", "authed", "all"]
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/tuic.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "tls"],
+					"properties": {
+						"type": {
+							"const": "tuic"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "TUIC users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["uuid"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"uuid": {
+										"description": "TUIC user uuid.",
+										"type": "string"
+									},
+									"password": {
+										"description": "TUIC user password.",
+										"type": "string"
+									}
+								}
+							}
+						},
+						"congestion_control": {
+							"description": "QUIC congestion control algorithm.\n\n`cubic` is used by default.",
+							"type": "string",
+							"enum": ["cubic", "new_reno", "bbr"]
+						},
+						"auth_timeout": {
+							"description": "How long the server should wait for the client to send the authentication command.\n\n`3s` is used by default.",
+							"type": "string"
+						},
+						"zero_rtt_handshake": {
+							"description": "Enable 0-RTT QUIC connection handshake on the client side.",
+							"type": "boolean"
+						},
+						"heartbeat": {
+							"description": "Interval for sending heartbeat packets for keeping the connection alive.\n\n`10s` is used by default.",
+							"type": "string"
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/hysteria2.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "tls"],
+					"properties": {
+						"type": {
+							"const": "hysteria2"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"up_mbps": {
+							"description": "Max upload bandwidth in Mbps.\n\nNot limited if empty.",
+							"type": "integer"
+						},
+						"down_mbps": {
+							"description": "Max download bandwidth in Mbps.\n\nNot limited if empty.",
+							"type": "integer"
+						},
+						"obfs": {
+							"description": "QUIC traffic obfuscation.",
+							"type": "object",
+							"properties": {
+								"type": {
+									"description": "QUIC traffic obfuscator type.",
+									"type": "string",
+									"enum": ["salamander"]
+								},
+								"password": {
+									"description": "QUIC traffic obfuscator password.",
+									"type": "string"
+								}
+							}
+						},
+						"users": {
+							"description": "Hysteria2 users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["password"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"password": {
+										"description": "Authentication password.",
+										"type": "string"
+									}
+								}
+							}
+						},
+						"ignore_client_bandwidth": {
+							"description": "Commands clients to use the BBR CC instead of Hysteria CC when bandwidth is not set.",
+							"type": "boolean"
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						},
+						"masquerade": {
+							"oneOf": [
+								{
+									"description": "HTTP3 server behavior (URL string configuration) when authentication fails.",
+									"type": "string"
+								},
+								{
+									"type": "object",
+									"properties": {
+										"type": {
+											"description": "Masquerade type.",
+											"type": "string",
+											"enum": ["file", "proxy", "string"]
+										},
+										"directory": {
+											"description": "File server root directory.",
+											"type": "string"
+										},
+										"url": {
+											"description": "Reverse proxy target URL.",
+											"type": "string"
+										},
+										"rewrite_host": {
+											"description": "Rewrite the `Host` header to the target URL.",
+											"type": "boolean"
+										},
+										"status_code": {
+											"description": "Fixed response status code.",
+											"type": "integer"
+										},
+										"headers": {
+											"description": "Fixed response headers.",
+											"type": "object",
+											"additionalProperties": {
+												"type": "string"
+											}
+										},
+										"content": {
+											"description": "Fixed response content.",
+											"type": "string"
+										}
+									}
+								}
+							]
+						},
+						"brutal_debug": {
+							"description": "Enable debug information logging for Hysteria Brutal CC.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/vless.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "users"],
+					"properties": {
+						"type": {
+							"const": "vless"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "VLESS users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["uuid"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"uuid": {
+										"type": "string"
+									},
+									"flow": {
+										"description": "VLESS Sub-protocol.",
+										"type": "string",
+										"enum": ["", "xtls-rprx-vision"]
+									}
+								}
+							}
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-inbound.schema.json"
+						},
+						"transport": {
+							"$ref": "#/$defs/shared~1v2ray-transport.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/anytls.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "users"],
+					"properties": {
+						"type": {
+							"const": "anytls"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"users": {
+							"description": "AnyTLS users.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["password"],
+								"properties": {
+									"name": {
+										"type": "string"
+									},
+									"password": {
+										"type": "string"
+									}
+								}
+							}
+						},
+						"padding_scheme": {
+							"description": "AnyTLS padding scheme line array.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/tun.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "tun"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"interface_name": {
+							"description": "Virtual device name, automatically selected if empty.",
+							"type": "string"
+						},
+						"address": {
+							"description": "🆕 Since sing-box 1.10.0\n\nIPv4 and IPv6 prefix for the tun interface.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"mtu": {
+							"description": "The maximum transmission unit.",
+							"type": "integer"
+						},
+						"auto_route": {
+							"description": "Set the default route to the Tun.",
+							"type": "boolean"
+						},
+						"iproute2_table_index": {
+							"description": "🆕 Since sing-box 1.10.0\n\nLinux iproute2 table index generated by `auto_route`.",
+							"default": 2022,
+							"type": "integer"
+						},
+						"iproute2_rule_index": {
+							"description": "🆕 Since sing-box 1.10.0\n\nLinux iproute2 rule start index generated by `auto_route`.",
+							"default": 9000,
+							"type": "integer"
+						},
+						"auto_redirect": {
+							"description": "🆕 Since sing-box 1.10.0\n\n> Only supported on Linux with `auto_route` enabled.\n\nImprove TUN routing and performance using nftables.",
+							"type": "boolean"
+						},
+						"auto_redirect_input_mark": {
+							"description": "🆕 Since sing-box 1.10.0\n\nConnection input mark used by `auto_redirect`.\n\n`0x2023` is used by default.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "string"
+								}
+							]
+						},
+						"auto_redirect_output_mark": {
+							"description": "🆕 Since sing-box 1.10.0\n\nConnection output mark used by `auto_redirect`.\n\n`0x2024` is used by default.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "string"
+								}
+							]
+						},
+						"auto_redirect_iproute2_fallback_rule_index": {
+							"description": "🆕 Since sing-box 1.12.18\n\nLinux iproute2 fallback rule index generated by `auto_redirect`.",
+							"default": 32768,
+							"type": "integer"
+						},
+						"loopback_address": {
+							"description": "🆕 Since sing-box 1.12.0\n\nLoopback addresses make TCP connections to the specified address connect to the source address.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"strict_route": {
+							"description": "Enforce strict routing rules when `auto_route` is enabled.",
+							"type": "boolean"
+						},
+						"route_address": {
+							"description": "🆕 Since sing-box 1.10.0\n\nUse custom routes instead of default when `auto_route` is enabled.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"route_exclude_address": {
+							"description": "🆕 Since sing-box 1.10.0\n\nExclude custom routes when `auto_route` is enabled.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"route_address_set": {
+							"description": "🆕 Since sing-box 1.10.0\n\nAdd the destination IP CIDR rules in the specified rule-sets to the firewall.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"route_exclude_address_set": {
+							"description": "🆕 Since sing-box 1.10.0\n\nAdd the destination IP CIDR rules in the specified rule-sets to the firewall for exclusion.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"endpoint_independent_nat": {
+							"description": "Enable endpoint-independent NAT.\n\nOnly available on the gvisor stack.",
+							"type": "boolean"
+						},
+						"udp_timeout": {
+							"description": "UDP NAT expiration time.\n\n`5m` will be used by default.",
+							"default": "5m",
+							"type": "string"
+						},
+						"stack": {
+							"description": "TCP/IP stack.\n\n- `system`: Perform L3 to L4 translation using the system network stack\n- `gvisor`: Perform L3 to L4 translation using gVisor's virtual network stack\n- `mixed`: Mixed `system` TCP stack and `gvisor` UDP stack",
+							"type": "string",
+							"enum": ["system", "gvisor", "mixed"]
+						},
+						"include_interface": {
+							"description": "> Interface rules are only supported on Linux and require auto_route.\n\nLimit interfaces in route.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"exclude_interface": {
+							"description": "Exclude interfaces in route.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"include_uid": {
+							"description": "> UID rules are only supported on Linux and require auto_route.\n\nLimit users in route.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"include_uid_range": {
+							"description": "Limit users in route, but in range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"exclude_uid": {
+							"description": "Exclude users in route.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"exclude_uid_range": {
+							"description": "Exclude users in route, but in range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"include_android_user": {
+							"description": "> Android user and package rules are only supported on Android and require auto_route.\n\nLimit android users in route.",
+							"type": "array",
+							"items": {
+								"type": "integer"
+							}
+						},
+						"include_package": {
+							"description": "Limit android packages in route.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"exclude_package": {
+							"description": "Exclude android packages in route.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"platform": {
+							"description": "Platform-specific settings, provided by client applications.",
+							"type": "object",
+							"properties": {
+								"http_proxy": {
+									"type": "object",
+									"properties": {
+										"enabled": {
+											"description": "Enable system HTTP proxy.",
+											"type": "boolean"
+										},
+										"server": {
+											"description": "HTTP proxy server address.",
+											"type": "string"
+										},
+										"server_port": {
+											"description": "HTTP proxy server port.",
+											"type": "integer"
+										},
+										"bypass_domain": {
+											"description": "Hostnames that bypass the HTTP proxy.",
+											"$ref": "#/$defs/types~1string-or-array.schema.json"
+										},
+										"match_domain": {
+											"description": "> Only supported in graphical clients on Apple platforms.\n\nHostnames that use the HTTP proxy.",
+											"$ref": "#/$defs/types~1string-or-array.schema.json"
+										}
+									}
+								}
+							}
+						},
+						"gso": {
+							"description": "Deprecated in sing-box 1.11.0.",
+							"deprecated": true,
+							"type": "boolean"
+						},
+						"inet4_address": {
+							"description": "Deprecated in sing-box 1.10.0. Use `address` instead.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"inet6_address": {
+							"description": "Deprecated in sing-box 1.10.0. Use `address` instead.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"inet4_route_address": {
+							"description": "Deprecated in sing-box 1.10.0. Use `route_address` instead.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"inet6_route_address": {
+							"description": "Deprecated in sing-box 1.10.0. Use `route_address` instead.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"inet4_route_exclude_address": {
+							"description": "Deprecated in sing-box 1.10.0. Use `route_exclude_address` instead.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"inet6_route_exclude_address": {
+							"description": "Deprecated in sing-box 1.10.0. Use `route_exclude_address` instead.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/redirect.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "redirect"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound/tproxy.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "tproxy"
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Listen network, one of `tcp` `udp`.\n\nBoth if empty.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"inbound.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"description": "The type of the inbound.",
+							"type": "string",
+							"enum": [
+								"direct",
+								"mixed",
+								"socks",
+								"http",
+								"shadowsocks",
+								"vmess",
+								"trojan",
+								"naive",
+								"hysteria",
+								"shadowtls",
+								"tuic",
+								"hysteria2",
+								"vless",
+								"anytls",
+								"tun",
+								"redirect",
+								"tproxy"
+							]
+						},
+						"tag": {
+							"description": "The tag of the inbound.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"oneOf": [
+						{
+							"$ref": "#/$defs/inbound~1direct.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1mixed.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1socks.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1http.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1shadowsocks.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1vmess.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1trojan.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1naive.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1hysteria.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1shadowtls.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1tuic.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1hysteria2.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1vless.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1anytls.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1tun.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1redirect.schema.json"
+						},
+						{
+							"$ref": "#/$defs/inbound~1tproxy.schema.json"
+						}
+					]
+				}
+			]
+		},
+		"log.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"disabled": {
+					"description": "Disable logging, no output after start.",
+					"type": "boolean"
+				},
+				"level": {
+					"description": "Log level.",
+					"type": "string",
+					"enum": ["trace", "debug", "info", "warn", "error", "fatal", "panic"]
+				},
+				"output": {
+					"description": "Output file path. Will not write log to console after enable.",
+					"type": "string"
+				},
+				"timestamp": {
+					"description": "Add time to each line.",
+					"type": "boolean"
+				}
+			}
+		},
+		"ntp.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["server"],
+					"properties": {
+						"enabled": {
+							"description": "Enable NTP service.",
+							"type": "boolean"
+						},
+						"server": {
+							"description": "NTP server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "NTP server port.\n\n123 is used by default.",
+							"default": 123,
+							"type": "integer"
+						},
+						"interval": {
+							"description": "Time synchronization interval.\n\n30 minutes is used by default.",
+							"default": "30m",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/direct.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			],
+			"required": ["type"],
+			"properties": {
+				"type": {
+					"const": "direct"
+				},
+				"tag": {
+					"description": "The tag of the outbound.",
+					"type": "string"
+				},
+				"override_address": {
+					"description": "Deprecated in sing-box 1.11.0.\n\nOverride the connection destination address.",
+					"deprecated": true,
+					"type": "string"
+				},
+				"override_port": {
+					"description": "Deprecated in sing-box 1.11.0.\n\nOverride the connection destination port.",
+					"deprecated": true,
+					"type": "integer"
+				}
+			}
+		},
+		"outbound/block.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"required": ["type"],
+			"properties": {
+				"type": {
+					"const": "block"
+				},
+				"tag": {
+					"description": "The tag of the outbound.",
+					"type": "string"
+				}
+			}
+		},
+		"shared/udp-over-tcp.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"$comment": "The structure can be replaced with a boolean value when the version is not specified.",
+			"oneOf": [
+				{
+					"type": "boolean"
+				},
+				{
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"description": "Enable the UDP over TCP protocol.",
+							"type": "boolean"
+						},
+						"version": {
+							"description": "The protocol version, `1` or `2`.\n\n2 is used by default.",
+							"type": "integer",
+							"enum": [1, 2]
+						}
+					}
+				}
+			]
+		},
+		"outbound/socks.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port"],
+					"properties": {
+						"type": {
+							"const": "socks"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"version": {
+							"description": "The SOCKS version, one of `4` `4a` `5`.\n\nSOCKS5 used by default.",
+							"type": "string",
+							"enum": ["4", "4a", "5"]
+						},
+						"username": {
+							"description": "SOCKS username.",
+							"type": "string"
+						},
+						"password": {
+							"description": "SOCKS5 password.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"udp_over_tcp": {
+							"$ref": "#/$defs/shared~1udp-over-tcp.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/http.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port"],
+					"properties": {
+						"type": {
+							"const": "http"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"username": {
+							"description": "Basic authorization username.",
+							"type": "string"
+						},
+						"password": {
+							"description": "Basic authorization password.",
+							"type": "string"
+						},
+						"path": {
+							"description": "Path of HTTP request.",
+							"type": "string"
+						},
+						"headers": {
+							"description": "Extra headers of HTTP request.",
+							"type": "object",
+							"additionalProperties": {
+								"$ref": "#/$defs/types~1string-or-array.schema.json"
+							}
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"shared/multiplex-outbound.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"enabled": {
+					"description": "Enable multiplex.",
+					"type": "boolean"
+				},
+				"protocol": {
+					"description": "Multiplex protocol.\n\n- smux: https://github.com/xtaci/smux\n- yamux: https://github.com/hashicorp/yamux\n- h2mux: https://golang.org/x/net/http2\n\nh2mux is used by default.",
+					"type": "string",
+					"enum": ["smux", "yamux", "h2mux"]
+				},
+				"max_connections": {
+					"description": "Maximum connections.\n\nConflict with `max_streams`.",
+					"type": "integer"
+				},
+				"min_streams": {
+					"description": "Minimum multiplexed streams in a connection before opening a new connection.\n\nConflict with `max_streams`.",
+					"type": "integer"
+				},
+				"max_streams": {
+					"description": "Maximum multiplexed streams in a connection before opening a new connection.\n\nConflict with `max_connections` and `min_streams`.",
+					"type": "integer"
+				},
+				"padding": {
+					"description": "Enable padding.\n\nRequires sing-box server version 1.3-beta9 or later.",
+					"type": "boolean"
+				},
+				"brutal": {
+					"$ref": "#/$defs/shared~1tcp-brutal.schema.json"
+				}
+			}
+		},
+		"outbound/shadowsocks.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port", "method", "password"],
+					"properties": {
+						"type": {
+							"const": "shadowsocks"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"method": {
+							"description": "Encryption method.",
+							"type": "string",
+							"enum": [
+								"2022-blake3-aes-128-gcm",
+								"2022-blake3-aes-256-gcm",
+								"2022-blake3-chacha20-poly1305",
+								"none",
+								"aes-128-gcm",
+								"aes-192-gcm",
+								"aes-256-gcm",
+								"chacha20-ietf-poly1305",
+								"xchacha20-ietf-poly1305",
+								"aes-128-ctr",
+								"aes-192-ctr",
+								"aes-256-ctr",
+								"aes-128-cfb",
+								"aes-192-cfb",
+								"aes-256-cfb",
+								"rc4-md5",
+								"chacha20-ietf",
+								"xchacha20"
+							]
+						},
+						"password": {
+							"description": "The shadowsocks password.",
+							"type": "string"
+						},
+						"plugin": {
+							"description": "Shadowsocks SIP003 plugin.\n\nOnly `obfs-local` and `v2ray-plugin` are supported.",
+							"type": "string"
+						},
+						"plugin_opts": {
+							"description": "Shadowsocks SIP003 plugin options.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"udp_over_tcp": {
+							"$ref": "#/$defs/shared~1udp-over-tcp.schema.json"
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/vmess.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port", "uuid"],
+					"properties": {
+						"type": {
+							"const": "vmess"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"uuid": {
+							"description": "The VMess user id.",
+							"type": "string"
+						},
+						"security": {
+							"description": "Encryption method.",
+							"type": "string",
+							"enum": [
+								"auto",
+								"none",
+								"zero",
+								"aes-128-gcm",
+								"chacha20-poly1305",
+								"aes-128-ctr"
+							]
+						},
+						"alter_id": {
+							"description": "Alter ID.\n\n0 = Use AEAD protocol\n1 = Use legacy protocol",
+							"type": "integer"
+						},
+						"global_padding": {
+							"description": "Protocol parameter. Will waste traffic randomly if enabled.",
+							"type": "boolean"
+						},
+						"authenticated_length": {
+							"description": "Protocol parameter. Enable length block encryption.",
+							"type": "boolean"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						},
+						"packet_encoding": {
+							"description": "UDP packet encoding.",
+							"type": "string",
+							"enum": ["", "packetaddr", "xudp"]
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-outbound.schema.json"
+						},
+						"transport": {
+							"$ref": "#/$defs/shared~1v2ray-transport.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/trojan.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port", "password"],
+					"properties": {
+						"type": {
+							"const": "trojan"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"password": {
+							"description": "The Trojan password.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-outbound.schema.json"
+						},
+						"transport": {
+							"$ref": "#/$defs/shared~1v2ray-transport.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/wireguard.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"deprecated": true,
+					"required": ["type", "local_address", "private_key"],
+					"properties": {
+						"type": {
+							"const": "wireguard"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"system_interface": {
+							"description": "Use system interface.",
+							"type": "boolean"
+						},
+						"interface_name": {
+							"description": "Custom interface name for system interface.",
+							"type": "string"
+						},
+						"local_address": {
+							"description": "List of IP (v4 or v6) address prefixes to be assigned to the interface.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"private_key": {
+							"description": "WireGuard private key (base64-encoded).",
+							"type": "string"
+						},
+						"peers": {
+							"description": "Multi-peer support.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"properties": {
+									"server": {
+										"type": "string"
+									},
+									"server_port": {
+										"type": "integer"
+									},
+									"public_key": {
+										"type": "string"
+									},
+									"pre_shared_key": {
+										"type": "string"
+									},
+									"allowed_ips": {
+										"$ref": "#/$defs/types~1string-or-array.schema.json"
+									},
+									"reserved": {
+										"type": "array",
+										"items": {
+											"type": "integer"
+										}
+									}
+								}
+							}
+						},
+						"peer_public_key": {
+							"description": "WireGuard peer public key.",
+							"type": "string"
+						},
+						"pre_shared_key": {
+							"description": "WireGuard pre-shared key.",
+							"type": "string"
+						},
+						"reserved": {
+							"description": "WireGuard reserved field bytes.",
+							"type": "array",
+							"items": {
+								"type": "integer"
+							}
+						},
+						"workers": {
+							"description": "WireGuard worker count.\n\nCPU count is used by default.",
+							"type": "integer"
+						},
+						"mtu": {
+							"description": "WireGuard MTU.\n\n1408 will be used if empty.",
+							"type": "integer"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"gso": {
+							"description": "Deprecated in sing-box 1.11.0.",
+							"deprecated": true,
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/hysteria.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "tls"],
+					"properties": {
+						"type": {
+							"const": "hysteria"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"server_ports": {
+							"description": "🆕 Since sing-box 1.12.0\n\nServer port range list.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"hop_interval": {
+							"description": "🆕 Since sing-box 1.12.0\n\nPort hopping interval.\n\n`30s` is used by default.",
+							"type": "string"
+						},
+						"up": {
+							"description": "Max upload bandwidth.\n\nFormat: `[Integer] [Unit]` e.g. `100 Mbps`",
+							"type": "string"
+						},
+						"up_mbps": {
+							"description": "Max upload bandwidth in Mbps.",
+							"type": "integer"
+						},
+						"down": {
+							"description": "Max download bandwidth.\n\nFormat: `[Integer] [Unit]` e.g. `100 Mbps`",
+							"type": "string"
+						},
+						"down_mbps": {
+							"description": "Max download bandwidth in Mbps.",
+							"type": "integer"
+						},
+						"obfs": {
+							"description": "Obfuscated password.",
+							"type": "string"
+						},
+						"auth": {
+							"description": "Authentication password, in base64.",
+							"type": "string"
+						},
+						"auth_str": {
+							"description": "Authentication password.",
+							"type": "string"
+						},
+						"recv_window_conn": {
+							"description": "The QUIC stream-level flow control window for receiving data.",
+							"type": "integer"
+						},
+						"recv_window": {
+							"description": "The QUIC connection-level flow control window for receiving data.",
+							"type": "integer"
+						},
+						"disable_mtu_discovery": {
+							"description": "Disables Path MTU Discovery (RFC 8899).",
+							"type": "boolean"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/vless.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port", "uuid"],
+					"properties": {
+						"type": {
+							"const": "vless"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"uuid": {
+							"description": "VLESS user id.",
+							"type": "string"
+						},
+						"flow": {
+							"description": "VLESS Sub-protocol.",
+							"type": "string",
+							"enum": ["", "xtls-rprx-vision"]
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						},
+						"packet_encoding": {
+							"description": "UDP packet encoding, xudp is used by default.",
+							"type": "string",
+							"enum": ["", "packetaddr", "xudp"]
+						},
+						"multiplex": {
+							"$ref": "#/$defs/shared~1multiplex-outbound.schema.json"
+						},
+						"transport": {
+							"$ref": "#/$defs/shared~1v2ray-transport.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/shadowtls.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port", "tls"],
+					"properties": {
+						"type": {
+							"const": "shadowtls"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"version": {
+							"description": "ShadowTLS protocol version.\n\n1 is used by default.",
+							"type": "integer",
+							"enum": [1, 2, 3]
+						},
+						"password": {
+							"description": "Set password.\n\nOnly available in the ShadowTLS v2/v3 protocol.",
+							"type": "string"
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/tuic.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port", "uuid", "tls"],
+					"properties": {
+						"type": {
+							"const": "tuic"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"uuid": {
+							"description": "TUIC user uuid.",
+							"type": "string"
+						},
+						"password": {
+							"description": "TUIC user password.",
+							"type": "string"
+						},
+						"congestion_control": {
+							"description": "QUIC congestion control algorithm.\n\n`cubic` is used by default.",
+							"type": "string",
+							"enum": ["cubic", "new_reno", "bbr"]
+						},
+						"udp_relay_mode": {
+							"description": "UDP packet relay mode.\n\n`native` is used by default.",
+							"type": "string",
+							"enum": ["native", "quic"]
+						},
+						"udp_over_stream": {
+							"description": "UDP over TCP protocol for QUIC stream based UDP relay.",
+							"type": "boolean"
+						},
+						"zero_rtt_handshake": {
+							"description": "Enable 0-RTT QUIC connection handshake.",
+							"type": "boolean"
+						},
+						"heartbeat": {
+							"description": "Interval for sending heartbeat packets.\n\n`10s` is used by default.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/hysteria2.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "tls"],
+					"properties": {
+						"type": {
+							"const": "hysteria2"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"server_ports": {
+							"description": "🆕 Since sing-box 1.11.0\n\nServer port range list.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"hop_interval": {
+							"description": "🆕 Since sing-box 1.11.0\n\nPort hopping interval.\n\n`30s` is used by default.",
+							"type": "string"
+						},
+						"up_mbps": {
+							"description": "Max upload bandwidth in Mbps.",
+							"type": "integer"
+						},
+						"down_mbps": {
+							"description": "Max download bandwidth in Mbps.",
+							"type": "integer"
+						},
+						"obfs": {
+							"type": "object",
+							"properties": {
+								"type": {
+									"description": "QUIC traffic obfuscator type.",
+									"type": "string",
+									"enum": ["salamander"]
+								},
+								"password": {
+									"description": "QUIC traffic obfuscator password.",
+									"type": "string"
+								}
+							}
+						},
+						"password": {
+							"description": "Authentication password.",
+							"type": "string"
+						},
+						"network": {
+							"description": "Enabled network.\n\nOne of `tcp` `udp`.\n\nBoth is enabled by default.",
+							"type": "string",
+							"enum": ["tcp", "udp"]
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						},
+						"brutal_debug": {
+							"description": "Enable debug information logging for Hysteria Brutal CC.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/anytls.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server", "server_port", "password", "tls"],
+					"properties": {
+						"type": {
+							"const": "anytls"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "The server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "The server port.",
+							"type": "integer"
+						},
+						"password": {
+							"description": "The AnyTLS password.",
+							"type": "string"
+						},
+						"idle_session_check_interval": {
+							"description": "Interval checking for idle sessions.\n\nDefault: 30s.",
+							"type": "string"
+						},
+						"idle_session_timeout": {
+							"description": "In the check, close sessions that have been idle for longer than this.\n\nDefault: 30s.",
+							"type": "string"
+						},
+						"min_idle_session": {
+							"description": "In the check, at least the first `n` idle sessions are kept open.\n\nDefault value: n=0",
+							"type": "integer"
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/tor.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "tor"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"executable_path": {
+							"description": "The path to the Tor executable.\n\nEmbedded Tor will be ignored if set.",
+							"type": "string"
+						},
+						"extra_args": {
+							"description": "List of extra arguments passed to the Tor instance when started.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"data_directory": {
+							"description": "The data directory of Tor.\n\nEach start will be very slow if not specified.",
+							"type": "string"
+						},
+						"torrc": {
+							"description": "Map of torrc options.",
+							"type": "object",
+							"additionalProperties": true
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/ssh.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "server"],
+					"properties": {
+						"type": {
+							"const": "ssh"
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						},
+						"server": {
+							"description": "Server address.",
+							"type": "string"
+						},
+						"server_port": {
+							"description": "Server port.\n\n22 will be used if empty.",
+							"type": "integer"
+						},
+						"user": {
+							"description": "SSH user.\n\nroot will be used if empty.",
+							"type": "string"
+						},
+						"password": {
+							"description": "Password.",
+							"type": "string"
+						},
+						"private_key": {
+							"description": "Private key.",
+							"type": "string"
+						},
+						"private_key_path": {
+							"description": "Private key path.",
+							"type": "string"
+						},
+						"private_key_passphrase": {
+							"description": "Private key passphrase.",
+							"type": "string"
+						},
+						"host_key": {
+							"description": "Host key.\n\nAccept any if empty.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"host_key_algorithms": {
+							"description": "Host key algorithms.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"client_version": {
+							"description": "Client version.\n\nRandom version will be used if empty.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1dial.schema.json"
+				}
+			]
+		},
+		"outbound/dns.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"deprecated": true,
+			"required": ["type"],
+			"properties": {
+				"type": {
+					"const": "dns"
+				},
+				"tag": {
+					"description": "The tag of the outbound.",
+					"type": "string"
+				}
+			}
+		},
+		"outbound/selector.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"required": ["type", "outbounds"],
+			"properties": {
+				"type": {
+					"const": "selector"
+				},
+				"tag": {
+					"description": "The tag of the outbound.",
+					"type": "string"
+				},
+				"outbounds": {
+					"description": "List of outbound tags to select.",
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"default": {
+					"description": "The default outbound tag. The first outbound will be used if empty.",
+					"type": "string"
+				},
+				"interrupt_exist_connections": {
+					"description": "Interrupt existing connections when the selected outbound has changed.",
+					"type": "boolean"
+				}
+			}
+		},
+		"outbound/urltest.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"required": ["type", "outbounds"],
+			"properties": {
+				"type": {
+					"const": "urltest"
+				},
+				"tag": {
+					"description": "The tag of the outbound.",
+					"type": "string"
+				},
+				"outbounds": {
+					"description": "List of outbound tags to test.",
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"url": {
+					"description": "The URL to test.\n\n`https://www.gstatic.com/generate_204` will be used if empty.",
+					"type": "string"
+				},
+				"interval": {
+					"description": "The test interval.\n\n`3m` will be used if empty.",
+					"type": "string"
+				},
+				"tolerance": {
+					"description": "The test tolerance in milliseconds.\n\n`50` will be used if empty.",
+					"type": "integer"
+				},
+				"idle_timeout": {
+					"description": "The idle timeout.\n\n`30m` will be used if empty.",
+					"type": "string"
+				},
+				"interrupt_exist_connections": {
+					"description": "Interrupt existing connections when the selected outbound has changed.",
+					"type": "boolean"
+				}
+			}
+		},
+		"outbound.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"description": "The type of the outbound.",
+							"type": "string",
+							"enum": [
+								"direct",
+								"block",
+								"socks",
+								"http",
+								"shadowsocks",
+								"vmess",
+								"trojan",
+								"wireguard",
+								"hysteria",
+								"vless",
+								"shadowtls",
+								"tuic",
+								"hysteria2",
+								"anytls",
+								"tor",
+								"ssh",
+								"dns",
+								"selector",
+								"urltest"
+							]
+						},
+						"tag": {
+							"description": "The tag of the outbound.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"oneOf": [
+						{
+							"$ref": "#/$defs/outbound~1direct.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1block.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1socks.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1http.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1shadowsocks.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1vmess.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1trojan.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1wireguard.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1hysteria.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1vless.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1shadowtls.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1tuic.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1hysteria2.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1anytls.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1tor.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1ssh.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1dns.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1selector.schema.json"
+						},
+						{
+							"$ref": "#/$defs/outbound~1urltest.schema.json"
+						}
+					]
+				}
+			]
+		},
+		"rule-set/headless-rule.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"oneOf": [
+				{
+					"$ref": "#/$defs/rule-set~1headless-rule.schema.json/$defs/defaultHeadlessRule"
+				},
+				{
+					"$ref": "#/$defs/rule-set~1headless-rule.schema.json/$defs/logicalHeadlessRule"
+				}
+			],
+			"$defs": {
+				"defaultHeadlessRule": {
+					"type": "object",
+					"properties": {
+						"query_type": {
+							"description": "DNS query type. Values can be integers or type name strings.",
+							"oneOf": [
+								{
+									"type": "string"
+								},
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"oneOf": [
+											{
+												"type": "string"
+											},
+											{
+												"type": "integer"
+											}
+										]
+									}
+								}
+							]
+						},
+						"network": {
+							"description": "`tcp` or `udp`.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain": {
+							"description": "Match full domain.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_suffix": {
+							"description": "Match domain suffix.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_keyword": {
+							"description": "Match domain using keyword.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_regex": {
+							"description": "Match domain using regular expression.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_ip_cidr": {
+							"description": "Match source IP CIDR.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"ip_cidr": {
+							"description": "Match IP CIDR.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_port": {
+							"description": "Match source port.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"source_port_range": {
+							"description": "Match source port range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"port": {
+							"description": "Match port.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"port_range": {
+							"description": "Match port range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_name": {
+							"description": "> Only supported on Linux, Windows, and macOS.\n\nMatch process name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_path": {
+							"description": "> Only supported on Linux, Windows, and macOS.\n\nMatch process path.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_path_regex": {
+							"description": "🆕 Since sing-box 1.10.0\n\nMatch process path using regular expression.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"package_name": {
+							"description": "Match android package name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"network_type": {
+							"description": "🆕 Since sing-box 1.11.0\n\nMatch network type.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"network_is_expensive": {
+							"description": "🆕 Since sing-box 1.11.0\n\nMatch if network is considered expensive.",
+							"type": "boolean"
+						},
+						"network_is_constrained": {
+							"description": "🆕 Since sing-box 1.11.0\n\nMatch if network is in Low Data Mode.",
+							"type": "boolean"
+						},
+						"wifi_ssid": {
+							"description": "Match WiFi SSID.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"wifi_bssid": {
+							"description": "Match WiFi BSSID.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"invert": {
+							"description": "Invert match result.",
+							"type": "boolean"
+						}
+					}
+				},
+				"logicalHeadlessRule": {
+					"type": "object",
+					"required": ["type", "mode", "rules"],
+					"properties": {
+						"type": {
+							"const": "logical"
+						},
+						"mode": {
+							"description": "`and` or `or`",
+							"type": "string",
+							"enum": ["and", "or"]
+						},
+						"rules": {
+							"description": "Included rules.",
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/rule-set~1headless-rule.schema.json/$defs/defaultHeadlessRule"
+							}
+						},
+						"invert": {
+							"description": "Invert match result.",
+							"type": "boolean"
+						}
+					}
+				}
+			}
+		},
+		"rule-set.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"oneOf": [
+				{
+					"required": ["tag", "rules"],
+					"properties": {
+						"type": {
+							"const": "inline"
+						},
+						"tag": {
+							"description": "Tag of rule-set.",
+							"type": "string"
+						},
+						"rules": {
+							"description": "List of Headless Rule.",
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/rule-set~1headless-rule.schema.json"
+							}
+						}
+					}
+				},
+				{
+					"required": ["type", "tag", "path"],
+					"properties": {
+						"type": {
+							"const": "local"
+						},
+						"tag": {
+							"description": "Tag of rule-set.",
+							"type": "string"
+						},
+						"format": {
+							"description": "Format of rule-set file, `source` or `binary`.",
+							"type": "string",
+							"enum": ["source", "binary"]
+						},
+						"path": {
+							"description": "File path of rule-set.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"required": ["type", "tag", "url"],
+					"properties": {
+						"type": {
+							"const": "remote"
+						},
+						"tag": {
+							"description": "Tag of rule-set.",
+							"type": "string"
+						},
+						"format": {
+							"description": "Format of rule-set file, `source` or `binary`.",
+							"type": "string",
+							"enum": ["source", "binary"]
+						},
+						"url": {
+							"description": "Download URL of rule-set.",
+							"type": "string"
+						},
+						"download_detour": {
+							"description": "Tag of the outbound to download rule-set.",
+							"type": "string"
+						},
+						"update_interval": {
+							"description": "Update interval of rule-set.\n\n`1d` will be used if empty.",
+							"type": "string"
+						}
+					}
+				}
+			]
+		},
+		"route/rule_action.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"oneOf": [
+				{
+					"if": {
+						"required": ["action"],
+						"properties": {
+							"action": {
+								"type": "string"
+							}
+						}
+					},
+					"then": {
+						"properties": {
+							"action": {
+								"const": "route"
+							}
+						}
+					},
+					"required": ["outbound"],
+					"properties": {
+						"outbound": {
+							"description": "Tag of target outbound.",
+							"type": "string"
+						},
+						"override_address": {
+							"description": "Override the connection destination address.",
+							"type": "string"
+						},
+						"override_port": {
+							"description": "Override the connection destination port.",
+							"type": "integer"
+						},
+						"network_strategy": {
+							"description": "Network strategy.",
+							"type": "string"
+						},
+						"network_type": {
+							"description": "Network types.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"fallback_network_type": {
+							"description": "Fallback network types.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"fallback_delay": {
+							"description": "Fallback delay.",
+							"type": "string"
+						},
+						"udp_disable_domain_unmapping": {
+							"description": "Disable domain unmapping for UDP.",
+							"type": "boolean"
+						},
+						"udp_connect": {
+							"description": "Connect UDP connection to the destination.",
+							"type": "boolean"
+						},
+						"udp_timeout": {
+							"description": "Timeout for UDP connections.",
+							"type": "string"
+						},
+						"tls_fragment": {
+							"description": "🆕 Since sing-box 1.12.0\n\nFragment TLS handshakes to bypass firewalls.",
+							"type": "boolean"
+						},
+						"tls_fragment_fallback_delay": {
+							"description": "🆕 Since sing-box 1.12.0\n\nThe fallback value used when TLS segmentation cannot automatically determine the wait time.",
+							"type": "string"
+						},
+						"tls_record_fragment": {
+							"description": "🆕 Since sing-box 1.12.0\n\nFragment TLS handshake into multiple TLS records.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "route-options"
+						},
+						"override_address": {
+							"type": "string"
+						},
+						"override_port": {
+							"type": "integer"
+						},
+						"network_strategy": {
+							"type": "string"
+						},
+						"network_type": {
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"fallback_network_type": {
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"fallback_delay": {
+							"type": "string"
+						},
+						"udp_disable_domain_unmapping": {
+							"type": "boolean"
+						},
+						"udp_connect": {
+							"type": "boolean"
+						},
+						"udp_timeout": {
+							"type": "string"
+						},
+						"tls_fragment": {
+							"type": "boolean"
+						},
+						"tls_fragment_fallback_delay": {
+							"type": "string"
+						},
+						"tls_record_fragment": {
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "reject"
+						},
+						"method": {
+							"description": "Reject method.",
+							"type": "string",
+							"enum": ["default", "drop"]
+						},
+						"no_drop": {
+							"description": "If not enabled, `method` will be temporarily overwritten to `drop` after 50 triggers in 30s.",
+							"type": "boolean"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "hijack-dns"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "sniff"
+						},
+						"sniffer": {
+							"description": "Enabled sniffers.\n\nAll sniffers enabled by default.",
+							"type": "array",
+							"items": {
+								"type": "string",
+								"enum": [
+									"http",
+									"tls",
+									"quic",
+									"stun",
+									"dns",
+									"bittorrent",
+									"dtls",
+									"ssh",
+									"rdp",
+									"ntp"
+								]
+							}
+						},
+						"timeout": {
+							"description": "Timeout for sniffing.\n\n`300ms` is used by default.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"required": ["action"],
+					"properties": {
+						"action": {
+							"const": "resolve"
+						},
+						"server": {
+							"description": "Specifies DNS server tag to use.",
+							"type": "string"
+						},
+						"strategy": {
+							"description": "DNS resolution strategy.",
+							"type": "string",
+							"enum": ["prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only"]
+						},
+						"disable_cache": {
+							"description": "🆕 Since sing-box 1.12.0\n\nDisable cache and save cache in this query.",
+							"type": "boolean"
+						},
+						"rewrite_ttl": {
+							"description": "🆕 Since sing-box 1.12.0\n\nRewrite TTL in DNS responses.",
+							"type": "integer"
+						},
+						"client_subnet": {
+							"description": "🆕 Since sing-box 1.12.0\n\nAppend a `edns0-subnet` OPT extra record.",
+							"type": "string"
+						}
+					}
+				}
+			]
+		},
+		"route/rule.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"oneOf": [
+				{
+					"$ref": "#/$defs/route~1rule.schema.json/$defs/defaultRouteRule"
+				},
+				{
+					"$ref": "#/$defs/route~1rule.schema.json/$defs/logicalRouteRule"
+				}
+			],
+			"$defs": {
+				"defaultRouteRule": {
+					"type": "object",
+					"allOf": [
+						{
+							"$ref": "#/$defs/route~1rule_action.schema.json"
+						}
+					],
+					"if": {
+						"required": ["action"],
+						"properties": {
+							"action": {
+								"not": {
+									"const": "route"
+								}
+							}
+						}
+					},
+					"then": {
+						"properties": {
+							"outbound": {
+								"description": "Deprecated in sing-box 1.11.0. Moved to Rule Action.",
+								"deprecated": true
+							}
+						}
+					},
+					"properties": {
+						"inbound": {
+							"description": "Tags of Inbound.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"ip_version": {
+							"description": "4 or 6.\n\nNot limited if empty.",
+							"type": "integer",
+							"enum": [4, 6]
+						},
+						"network": {
+							"description": "`tcp` or `udp`.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"auth_user": {
+							"description": "Username, see each inbound for details.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"protocol": {
+							"description": "Sniffed protocol.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"client": {
+							"description": "🆕 Since sing-box 1.10.0\n\nSniffed client type.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain": {
+							"description": "Match full domain.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_suffix": {
+							"description": "Match domain suffix.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_keyword": {
+							"description": "Match domain using keyword.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"domain_regex": {
+							"description": "Match domain using regular expression.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"geosite": {
+							"description": "Match geosite.\n\nDeprecated in sing-box 1.8.0.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_geoip": {
+							"description": "Match source geoip.\n\nDeprecated in sing-box 1.8.0.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"geoip": {
+							"description": "Match geoip.\n\nDeprecated in sing-box 1.8.0.",
+							"deprecated": true,
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_ip_cidr": {
+							"description": "Match source IP CIDR.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"source_ip_is_private": {
+							"description": "🆕 Since sing-box 1.8.0\n\nMatch non-public source IP.",
+							"type": "boolean"
+						},
+						"ip_cidr": {
+							"description": "Match IP CIDR.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"ip_is_private": {
+							"description": "🆕 Since sing-box 1.8.0\n\nMatch non-public IP.",
+							"type": "boolean"
+						},
+						"source_port": {
+							"description": "Match source port.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"source_port_range": {
+							"description": "Match source port range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"port": {
+							"description": "Match port.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"port_range": {
+							"description": "Match port range.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_name": {
+							"description": "> Only supported on Linux, Windows, and macOS.\n\nMatch process name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_path": {
+							"description": "> Only supported on Linux, Windows, and macOS.\n\nMatch process path.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"process_path_regex": {
+							"description": "🆕 Since sing-box 1.10.0\n\n> Only supported on Linux, Windows, and macOS.\n\nMatch process path using regular expression.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"package_name": {
+							"description": "Match android package name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"user": {
+							"description": "> Only supported on Linux.\n\nMatch user name.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"user_id": {
+							"description": "> Only supported on Linux.\n\nMatch user id.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "integer"
+									}
+								}
+							]
+						},
+						"clash_mode": {
+							"description": "Match Clash mode.",
+							"type": "string"
+						},
+						"network_type": {
+							"description": "🆕 Since sing-box 1.11.0\n\n> Only supported in graphical clients on Android and Apple platforms.\n\nMatch network type.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"network_is_expensive": {
+							"description": "🆕 Since sing-box 1.11.0\n\nMatch if network is considered expensive.",
+							"type": "boolean"
+						},
+						"network_is_constrained": {
+							"description": "🆕 Since sing-box 1.11.0\n\nMatch if network is in Low Data Mode.",
+							"type": "boolean"
+						},
+						"wifi_ssid": {
+							"description": "Match WiFi SSID.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"wifi_bssid": {
+							"description": "Match WiFi BSSID.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"rule_set": {
+							"description": "🆕 Since sing-box 1.8.0\n\nMatch rule-set.",
+							"$ref": "#/$defs/types~1string-or-array.schema.json"
+						},
+						"rule_set_ipcidr_match_source": {
+							"description": "Deprecated in sing-box 1.10.0. Use `rule_set_ip_cidr_match_source` instead.",
+							"deprecated": true,
+							"type": "boolean"
+						},
+						"rule_set_ip_cidr_match_source": {
+							"description": "🆕 Since sing-box 1.10.0\n\nMake `ip_cidr` in rule-sets match the source IP.",
+							"type": "boolean"
+						},
+						"invert": {
+							"description": "Invert match result.",
+							"type": "boolean"
+						},
+						"action": {
+							"description": "See Rule Actions for details.",
+							"type": "string",
+							"enum": [
+								"route",
+								"route-options",
+								"reject",
+								"hijack-dns",
+								"sniff",
+								"resolve"
+							]
+						},
+						"outbound": {
+							"type": "string"
+						}
+					}
+				},
+				"logicalRouteRule": {
+					"type": "object",
+					"allOf": [
+						{
+							"$ref": "#/$defs/route~1rule_action.schema.json"
+						}
+					],
+					"required": ["type", "mode", "rules"],
+					"properties": {
+						"type": {
+							"const": "logical"
+						},
+						"mode": {
+							"description": "`and` or `or`",
+							"type": "string",
+							"enum": ["and", "or"]
+						},
+						"rules": {
+							"description": "Included rules.",
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/route~1rule.schema.json/$defs/defaultRouteRule"
+							}
+						},
+						"invert": {
+							"description": "Invert match result.",
+							"type": "boolean"
+						},
+						"action": {
+							"description": "See Rule Actions for details.",
+							"type": "string",
+							"enum": [
+								"route",
+								"route-options",
+								"reject",
+								"hijack-dns",
+								"sniff",
+								"resolve"
+							]
+						},
+						"outbound": {
+							"description": "Deprecated in sing-box 1.11.0.",
+							"deprecated": true,
+							"type": "string"
+						}
+					}
+				}
+			}
+		},
+		"route.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"properties": {
+				"rules": {
+					"description": "List of Route Rule.",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/route~1rule.schema.json"
+					}
+				},
+				"rule_set": {
+					"description": "🆕 Since sing-box 1.8.0\n\nList of rule-set.",
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/rule-set.schema.json"
+					}
+				},
+				"final": {
+					"description": "Default outbound tag. The first outbound will be used if empty.",
+					"type": "string"
+				},
+				"auto_detect_interface": {
+					"description": "> Only supported on Linux, Windows and macOS.\n\nBind outbound connections to the default NIC by default to prevent routing loops under tun.",
+					"type": "boolean"
+				},
+				"override_android_vpn": {
+					"description": "> Only supported on Android.\n\nAccept Android VPN as upstream NIC when `auto_detect_interface` enabled.",
+					"type": "boolean"
+				},
+				"default_interface": {
+					"description": "> Only supported on Linux, Windows and macOS.\n\nBind outbound connections to the specified NIC by default.",
+					"type": "string"
+				},
+				"default_mark": {
+					"description": "> Only supported on Linux.\n\nSet routing mark by default.",
+					"type": "integer"
+				},
+				"default_domain_resolver": {
+					"description": "🆕 Since sing-box 1.12.0\n\nDefault domain resolver.",
+					"oneOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "object"
+						}
+					]
+				},
+				"default_network_strategy": {
+					"description": "🆕 Since sing-box 1.11.0\n\nDefault network strategy.",
+					"type": "string"
+				},
+				"default_network_type": {
+					"description": "🆕 Since sing-box 1.11.0\n\nDefault network types.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"default_fallback_network_type": {
+					"description": "🆕 Since sing-box 1.11.0\n\nDefault fallback network types.",
+					"$ref": "#/$defs/types~1string-or-array.schema.json"
+				},
+				"default_fallback_delay": {
+					"description": "🆕 Since sing-box 1.11.0\n\nDefault fallback delay.",
+					"type": "string"
+				},
+				"geoip": {
+					"description": "Removed in sing-box 1.12.0.",
+					"deprecated": true,
+					"type": "object"
+				},
+				"geosite": {
+					"description": "Removed in sing-box 1.12.0.",
+					"deprecated": true,
+					"type": "object"
+				}
+			}
+		},
+		"service/derp.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "config_path"],
+					"properties": {
+						"type": {
+							"const": "derp"
+						},
+						"tag": {
+							"description": "The tag of the service.",
+							"type": "string"
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						},
+						"config_path": {
+							"description": "Derper configuration file path.",
+							"type": "string"
+						},
+						"verify_client_endpoint": {
+							"description": "Tailscale endpoints tags to verify clients.",
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						},
+						"verify_client_url": {
+							"description": "URL to verify clients.",
+							"type": "array",
+							"items": {
+								"oneOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "object",
+										"required": ["url"],
+										"properties": {
+											"url": {
+												"type": "string"
+											}
+										}
+									}
+								]
+							}
+						},
+						"home": {
+							"description": "What to serve at the root path.",
+							"type": "string"
+						},
+						"mesh_with": {
+							"description": "Mesh with other DERP servers.",
+							"type": "array",
+							"items": {
+								"type": "object",
+								"required": ["server", "server_port"],
+								"properties": {
+									"server": {
+										"type": "string"
+									},
+									"server_port": {
+										"type": "integer"
+									},
+									"host": {
+										"type": "string"
+									},
+									"tls": {
+										"$ref": "#/$defs/shared~1tls-outbound.schema.json"
+									}
+								}
+							}
+						},
+						"mesh_psk": {
+							"description": "Pre-shared key for DERP mesh.",
+							"type": "string"
+						},
+						"mesh_psk_file": {
+							"description": "Pre-shared key file for DERP mesh.",
+							"type": "string"
+						},
+						"stun": {
+							"description": "STUN server listen options.",
+							"oneOf": [
+								{
+									"type": "integer"
+								},
+								{
+									"type": "object",
+									"properties": {
+										"enabled": {
+											"type": "boolean"
+										},
+										"listen": {
+											"type": "string"
+										},
+										"listen_port": {
+											"type": "integer"
+										}
+									}
+								}
+							]
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"service/resolved.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"const": "resolved"
+						},
+						"tag": {
+							"description": "The tag of the service.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"service/ssm-api.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"allOf": [
+				{
+					"required": ["type", "servers"],
+					"properties": {
+						"type": {
+							"const": "ssm-api"
+						},
+						"tag": {
+							"description": "The tag of the service.",
+							"type": "string"
+						},
+						"servers": {
+							"description": "A mapping Object from HTTP endpoints to Shadowsocks Inbound tags.",
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							}
+						},
+						"cache_path": {
+							"description": "If set, traffic and user state will be saved to the specified JSON file.",
+							"type": "string"
+						},
+						"tls": {
+							"$ref": "#/$defs/shared~1tls-inbound.schema.json"
+						}
+					}
+				},
+				{
+					"$ref": "#/$defs/shared~1listen.schema.json"
+				}
+			]
+		},
+		"service.schema.json": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"allOf": [
+				{
+					"required": ["type"],
+					"properties": {
+						"type": {
+							"description": "The type of the service.",
+							"type": "string",
+							"enum": ["derp", "resolved", "ssm-api"]
+						},
+						"tag": {
+							"description": "The tag of the service.",
+							"type": "string"
+						}
+					}
+				},
+				{
+					"oneOf": [
+						{
+							"$ref": "#/$defs/service~1derp.schema.json"
+						},
+						{
+							"$ref": "#/$defs/service~1resolved.schema.json"
+						},
+						{
+							"$ref": "#/$defs/service~1ssm-api.schema.json"
+						}
+					]
+				}
+			]
+		}
+	}
+}

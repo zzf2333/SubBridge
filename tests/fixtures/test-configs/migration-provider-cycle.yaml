@@ -1,0 +1,42 @@
+mixed-port: 7890
+mode: rule
+
+proxy-providers:
+  remote-a:
+    type: http
+    url: https://example.com/providers/a.yaml
+    path: ./providers/a.yaml
+
+proxies:
+  - name: NodeA
+    type: ss
+    server: node-a.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: pass-a
+
+proxy-groups:
+  - name: ProviderLeaf
+    type: select
+    use:
+      - remote-a
+
+  - name: LoopA
+    type: select
+    proxies:
+      - LoopB
+      - ProviderLeaf
+
+  - name: LoopB
+    type: select
+    proxies:
+      - LoopA
+
+  - name: Proxy
+    type: select
+    proxies:
+      - LoopA
+      - NodeA
+
+rules:
+  - MATCH,Proxy

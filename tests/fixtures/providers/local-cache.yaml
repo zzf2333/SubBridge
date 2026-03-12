@@ -1,0 +1,13 @@
+proxies:
+  - name: HK-Provider-01
+    type: ss
+    server: hk.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: pass-hk
+  - name: US-Provider-01
+    type: ss
+    server: us.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: pass-us

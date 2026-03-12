@@ -1,0 +1,53 @@
+{
+    "name": "subbridge",
+    "version": "0.1.0",
+    "description": "A modern proxy subscription converter for sing-box",
+    "type": "module",
+    "bin": {
+        "subbridge": "./dist/cli.js"
+    },
+    "scripts": {
+        "dev": "bun run --watch src/web/server.ts",
+        "build": "bun build src/cli/index.ts --outfile dist/cli.js --target bun && bun build src/web/server.ts --outfile dist/web.js --target bun",
+        "smoke": "./scripts/smoke.sh",
+        "proxy:smoke": "./scripts/proxy-smoke.sh",
+        "release:check": "./scripts/release-check.sh",
+        "start": "bun dist/web.js",
+        "prepack": "bun run build",
+        "test": "bun test",
+        "lint": "eslint src --ext .ts",
+        "format": "prettier --write \"src/**/*.ts\""
+    },
+    "keywords": [
+        "proxy",
+        "clash",
+        "sing-box",
+        "subscription",
+        "converter"
+    ],
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "author": "zzf2333",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/zzf2333/SubBridge.git"
+    },
+    "dependencies": {
+        "hono": "^4.0.0",
+        "js-yaml": "^4.1.0",
+        "commander": "^12.0.0",
+        "ajv": "^8.12.0"
+    },
+    "devDependencies": {
+        "@types/js-yaml": "^4.0.9",
+        "@typescript-eslint/eslint-plugin": "^7.0.0",
+        "@typescript-eslint/parser": "^7.0.0",
+        "eslint": "^8.57.0",
+        "prettier": "^3.2.5",
+        "typescript": "^5.3.3"
+    }
+}

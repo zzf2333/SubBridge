@@ -1,0 +1,54 @@
+# Full protocols Clash configuration
+# 包含所有支持协议的 Clash 配置
+
+port: 7890
+socks-port: 7891
+allow-lan: false
+mode: rule
+log-level: info
+
+proxies:
+  # Shadowsocks
+  - name: "ss-aes-256-gcm"
+    type: ss
+    server: ss.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: password123
+
+  # VMess
+  - name: "vmess-ws-tls"
+    type: vmess
+    server: vmess.example.com
+    port: 443
+    uuid: 12345678-1234-1234-1234-123456789012
+    alterId: 0
+    cipher: auto
+    tls: true
+    network: ws
+    ws-opts:
+      path: /path
+      headers:
+        Host: vmess.example.com
+
+  # Trojan
+  - name: "trojan-tls"
+    type: trojan
+    server: trojan.example.com
+    port: 443
+    password: password123
+    sni: trojan.example.com
+
+  # VLESS
+  - name: "vless-reality"
+    type: vless
+    server: vless.example.com
+    port: 443
+    uuid: 12345678-1234-1234-1234-123456789012
+    flow: xtls-rprx-vision
+    tls: true
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: SLwVcW_7GZ3Ob_I3cxkkCHLI0Q0f9kE99M5xLRWFIk0
+      short-id: 0123456789abcdef
+

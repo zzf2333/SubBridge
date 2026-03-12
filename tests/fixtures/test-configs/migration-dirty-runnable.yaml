@@ -1,0 +1,32 @@
+mixed-port: 7890
+mode: rule
+
+dns:
+  enable: true
+  nameserver:
+    - address: 8.8.8.8
+      detour: GhostOutbound
+
+proxies:
+  - name: NodeA
+    type: ss
+    server: node-a.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: pass-a
+
+proxy-groups:
+  - name: EmptyGroup
+    type: select
+    proxies:
+      - MissingNode
+
+  - name: Proxy
+    type: select
+    proxies:
+      - EmptyGroup
+      - NodeA
+
+rules:
+  - DOMAIN-SUFFIX,example.com,MissingGroup
+  - MATCH,Proxy

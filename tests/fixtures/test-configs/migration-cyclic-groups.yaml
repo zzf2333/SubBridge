@@ -1,0 +1,30 @@
+mixed-port: 7890
+mode: rule
+
+proxies:
+  - name: NodeA
+    type: ss
+    server: node-a.example.com
+    port: 8388
+    cipher: aes-256-gcm
+    password: pass-a
+
+proxy-groups:
+  - name: LoopA
+    type: select
+    proxies:
+      - LoopB
+
+  - name: LoopB
+    type: select
+    proxies:
+      - LoopA
+
+  - name: Proxy
+    type: select
+    proxies:
+      - LoopA
+      - NodeA
+
+rules:
+  - MATCH,Proxy
