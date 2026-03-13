@@ -1,0 +1,51 @@
+# 来源：
+# https://raw.githubusercontent.com/asgharkapk/Sub-Config-Extractor/refs/heads/main/output_configs/clash/Mosifree/-Reality.yaml
+# 抓取日期：2026-03-13
+# 说明：从公开 Reality 配置中抽取，仅保留 VLESS Reality 节点。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "[VLESS] 🇹🇷@FREE2CONFIG _1"
+    server: 94.131.123.167
+    port: 443
+    type: vless
+    tls: true
+    uuid: a44e0875-210f-4941-9062-89b6361a14c6
+    servername: apple.com
+    flow: xtls-rprx-vision
+    reality-opts:
+      public-key: i5a8i2AWUSMZ-rYA6hGBRCBBoe7W5ah33SCdF5JkMk4
+      short-id: 8bcfe256cf216fd8
+    client-fingerprint: chrome
+    skip-cert-verify: true
+    udp: true
+    tfo: false
+
+  - name: "[VLESS] 🇩🇪@FREE2CONFIG _1"
+    server: wolfb24.servers1mart.ir
+    port: 2096
+    type: vless
+    tls: true
+    uuid: 3f42b528-59ef-45f9-9ba3-6292ca46f909
+    servername: play.google.com
+    flow: xtls-rprx-vision
+    reality-opts:
+      public-key: K0iITauuYEqIayR3IB5Ny8MVKyORDJ65rUSHc3tLe1E
+      short-id: 42c0b628ba6a42a9
+    client-fingerprint: firefox
+    skip-cert-verify: true
+    udp: true
+    tfo: false
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "[VLESS] 🇹🇷@FREE2CONFIG _1"
+      - "[VLESS] 🇩🇪@FREE2CONFIG _1"
+
+rules:
+  - MATCH,Proxy

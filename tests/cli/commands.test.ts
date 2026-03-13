@@ -4,6 +4,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { runConvert } from '../../src/cli/commands/convert';
 import { runValidate } from '../../src/cli/commands/validate';
+import { runVerify } from '../../src/cli/commands/verify';
 
 const SAMPLE_YAML = `
 proxies:
@@ -242,6 +243,126 @@ describe('CLI Validate Command', () => {
         const restore = patchExit();
         try {
             expect(() => runValidate({ input })).toThrow('EXIT:1');
+        } finally {
+            restore();
+        }
+    });
+});
+
+describe('CLI Verify Command', () => {
+    test('writes verification report when all selected checks pass', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
+        const input = join(dir, 'config.json');
+        const report = join(dir, 'verify-report.json');
+        writeFileSync(input, JSON.stringify({ outbounds: [], route: {} }), 'utf-8');
+
+        const verifyReport = await runVerify(
+            {
+                input,
+                report,
+            },
+            {
+                readText: (path) => readFileSync(path, 'utf-8'),
+                writeText: (path, content) => writeFileSync(path, content, 'utf-8'),
+                validateSchema: () => ({ valid: true, errors: [] }),
+                isSingboxInstalled: async () => true,
+                getSingboxVersion: async () => 'sing-box version test',
+                checkConfig: async () => ({ success: true, errors: [], output: '' }),
+                runProxySmoke: async () => ({
+                    success: true,
+                    output: '',
+                    errors: [],
+                    details: {
+                        gstatic: '204',
+                        youtube: '200',
+                        egressIp: '127.0.0.1',
+                    },
+                }),
+            }
+        );
+
+        expect(verifyReport.summary.valid).toBe(true);
+        expect(JSON.parse(readFileSync(report, 'utf-8'))).toMatchObject({
+            summary: {
+                valid: true,
+            },
+            schema: { status: 'passed' },
+            singboxCheck: { status: 'passed' },
+            proxySmoke: { status: 'passed' },
+        });
+    });
+
+    test('skips optional checks when disabled', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
+        const input = join(dir, 'config.json');
+        writeFileSync(input, JSON.stringify({ outbounds: [], route: {} }), 'utf-8');
+
+        let singboxChecked = false;
+        let smokeChecked = false;
+
+        const verifyReport = await runVerify(
+            {
+                input,
+                singboxCheck: false,
+                smoke: false,
+            },
+            {
+                readText: (path) => readFileSync(path, 'utf-8'),
+                writeText: () => {},
+                validateSchema: () => ({ valid: true, errors: [] }),
+                isSingboxInstalled: async () => {
+                    singboxChecked = true;
+                    return true;
+                },
+                getSingboxVersion: async () => null,
+                checkConfig: async () => ({ success: true, errors: [], output: '' }),
+                runProxySmoke: async () => {
+                    smokeChecked = true;
+                    return {
+                        success: true,
+                        output: '',
+                        errors: [],
+                        details: {},
+                    };
+                },
+            }
+        );
+
+        expect(verifyReport.summary.valid).toBe(true);
+        expect(verifyReport.singboxCheck.status).toBe('skipped');
+        expect(verifyReport.proxySmoke.status).toBe('skipped');
+        expect(singboxChecked).toBe(false);
+        expect(smokeChecked).toBe(false);
+    });
+
+    test('exits when sing-box is required but unavailable', async () => {
+        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
+        const input = join(dir, 'config.json');
+        writeFileSync(input, JSON.stringify({ outbounds: [], route: {} }), 'utf-8');
+
+        const restore = patchExit();
+        try {
+            await expect(
+                runVerify(
+                    {
+                        input,
+                    },
+                    {
+                        readText: (path) => readFileSync(path, 'utf-8'),
+                        writeText: () => {},
+                        validateSchema: () => ({ valid: true, errors: [] }),
+                        isSingboxInstalled: async () => false,
+                        getSingboxVersion: async () => null,
+                        checkConfig: async () => ({ success: true, errors: [], output: '' }),
+                        runProxySmoke: async () => ({
+                            success: true,
+                            output: '',
+                            errors: [],
+                            details: {},
+                        }),
+                    }
+                )
+            ).rejects.toThrow('EXIT:1');
         } finally {
             restore();
         }

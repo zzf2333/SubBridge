@@ -1,0 +1,35 @@
+# 来源：
+# https://gist.githubusercontent.com/iso8434/fb962ef570ba339ffa91cb7d644f0218/raw/all.yaml
+# 抓取日期：2026-03-13
+# 说明：从公开 Clash 配置中抽取，仅保留 HTTP 上游节点。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "🇩🇪DE_2|2.0MB/s"
+    type: http
+    server: f1c7a97d-tbdts0-tubliy-1la7v.de.oshuawei.com
+    port: 443
+    username: 460749c2-bcef-11ee-89fc-f23c913c8d2b
+    password: 460749c2-bcef-11ee-89fc-f23c913c8d2b
+    tls: true
+
+  - name: "🇬🇧GB_2|1.3MB/s"
+    type: http
+    server: 8bcd6465-tbdts0-tcscqp-4lg6.uk.oshuawei.com
+    port: 443
+    username: a4c9b7cc-a816-11ed-9f65-f23c9164ca5d
+    password: a4c9b7cc-a816-11ed-9f65-f23c9164ca5d
+    tls: true
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "🇩🇪DE_2|2.0MB/s"
+      - "🇬🇧GB_2|1.3MB/s"
+
+rules:
+  - MATCH,Proxy

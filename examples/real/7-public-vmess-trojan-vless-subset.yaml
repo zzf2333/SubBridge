@@ -1,0 +1,62 @@
+# 来源：
+# https://raw.githubusercontent.com/hossein-shayesteh/v2ray-config/refs/heads/main/generated/clashConfig.yaml
+# 抓取日期：2026-03-13
+# 说明：从公开多协议 Clash 配置中抽取，仅保留 vmess / trojan / vless 节点。
+
+mixed-port: 7890
+allow-lan: true
+mode: rule
+log-level: silent
+
+proxies:
+  - name: "🇰🇷 VMESS 01"
+    type: vmess
+    server: seoul03.zgjok.com
+    port: 443
+    uuid: 72a0dac4-9689-4a57-b164-5c65bfa94772
+    alterId: 0
+    udp: true
+    skip-cert-verify: true
+    cipher: auto
+    network: ws
+    tls: true
+    servername: seoul03.zgjok.com
+    ws-opts:
+      path: /
+      headers:
+        Host: seoul03.zgjok.com
+
+  - name: "🇯🇵 TROJAN 02"
+    type: trojan
+    server: 160.16.106.144
+    port: 4054
+    password: 76d630f2af6619c4a5de0ef953df3c6a
+    udp: true
+    skip-cert-verify: true
+    sni: www.nintendogames.net
+
+  - name: "🇨🇦 VLESS 03"
+    type: vless
+    server: brenna.ns.cloudflare.com
+    port: 443
+    uuid: 1b2c91ab-f6c9-42f8-b2c6-8de0ac133d63
+    udp: true
+    tls: true
+    skip-cert-verify: true
+    servername: terazhedi.info
+    network: ws
+    ws-opts:
+      path: /sghiyws
+      headers:
+        Host: terazhedi.info
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "🇰🇷 VMESS 01"
+      - "🇯🇵 TROJAN 02"
+      - "🇨🇦 VLESS 03"
+
+rules:
+  - MATCH,Proxy

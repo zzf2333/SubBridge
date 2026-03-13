@@ -1,6 +1,6 @@
 {
     "name": "subbridge",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "A modern proxy subscription converter for sing-box",
     "type": "module",
     "bin": {
@@ -11,6 +11,9 @@
         "build": "bun build src/cli/index.ts --outfile dist/cli.js --target bun && bun build src/web/server.ts --outfile dist/web.js --target bun",
         "smoke": "./scripts/smoke.sh",
         "proxy:smoke": "./scripts/proxy-smoke.sh",
+        "verify:fixtures": "bun scripts/verify-fixtures.ts",
+        "check:public-real": "bun scripts/check-public-real.ts",
+        "release:notes": "bun scripts/release-notes.ts",
         "release:check": "./scripts/release-check.sh",
         "start": "bun dist/web.js",
         "prepack": "bun run build",

@@ -1,0 +1,44 @@
+# 来源：
+# https://raw.githubusercontent.com/asgharkapk/Sub-Config-Extractor/refs/heads/main/output_configs/clash/MatinGhanbari/v2ray-configs/ss.txt.yaml
+# 抓取日期：2026-03-13
+# 说明：从公开 SS 聚合配置中抽取，仅保留当前版本目标协议的 SS 节点。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "[SS] ⚡ b2n.ir/v2ray-configs | 163"
+    type: ss
+    server: 38.107.226.48
+    port: 7307
+    cipher: aes-256-gcm
+    password: FoOiGlkAA9yPEGP
+    tfo: false
+
+  - name: "[SS] ⚡ b2n.ir/v2ray-configs | 271"
+    type: ss
+    server: 51.161.118.38
+    port: 810
+    cipher: chacha20-ietf-poly1305
+    password: G!yBwPWH3Vao
+    tfo: false
+
+  - name: "[SS] ⚡ b2n.ir/v2ray-configs | 943"
+    type: ss
+    server: 54.251.168.143
+    port: 443
+    cipher: aes-256-cfb
+    password: amazonskr05
+    tfo: false
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "[SS] ⚡ b2n.ir/v2ray-configs | 163"
+      - "[SS] ⚡ b2n.ir/v2ray-configs | 271"
+      - "[SS] ⚡ b2n.ir/v2ray-configs | 943"
+
+rules:
+  - MATCH,Proxy

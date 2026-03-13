@@ -12,6 +12,16 @@ const cases = [
     '3-with-providers.yaml',
     '4-with-dns-fakeip.yaml',
     '5-with-tun.yaml',
+    '6-public-ss-subset.yaml',
+    '7-public-vmess-trojan-vless-subset.yaml',
+    '8-public-vless-reality-subset.yaml',
+    '9-public-hysteria2-subset.yaml',
+    '10-public-http-subset.yaml',
+    '11-public-vless-grpc-subset.yaml',
+    '12-public-vmess-variants-subset.yaml',
+    '13-public-vmess-grpc-subset.yaml',
+    '14-public-trojan-tls-subset.yaml',
+    '15-public-vless-ws-subset.yaml',
 ];
 
 describe('real Clash configs', () => {
@@ -163,5 +173,177 @@ describe('real Clash configs', () => {
         expect(result.report.repairs.some((repair) =>
             repair.summary.includes('Rewrite proxy-provider Remote as direct placeholder outbound')
         )).toBe(true);
+    });
+
+    test('keeps curated public SS subset runnable as shadowsocks outbounds', () => {
+        const input = readFileSync(join(REAL_DIR, '6-public-ss-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        expect(result.runnable).toBe(true);
+        expect(result.config?.outbounds?.some((outbound) => outbound.type === 'shadowsocks')).toBe(true);
+    });
+
+    test('keeps curated public vmess trojan vless subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '7-public-vmess-trojan-vless-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        const types = new Set(
+            (result.config?.outbounds ?? []).map((outbound) => outbound.type)
+        );
+
+        expect(result.runnable).toBe(true);
+        expect(types.has('vmess')).toBe(true);
+        expect(types.has('trojan')).toBe(true);
+        expect(types.has('vless')).toBe(true);
+    });
+
+    test('keeps curated public vless reality subset runnable with tls.reality', () => {
+        const input = readFileSync(join(REAL_DIR, '8-public-vless-reality-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        const vlessOutbound = result.config?.outbounds?.find((outbound) => outbound.type === 'vless');
+
+        expect(result.runnable).toBe(true);
+        expect(vlessOutbound).toMatchObject({
+            tls: {
+                reality: {
+                    enabled: true,
+                },
+            },
+        });
+    });
+
+    test('keeps curated public hysteria2 subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '9-public-hysteria2-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        expect(result.runnable).toBe(true);
+        expect(result.config?.outbounds?.some((outbound) => outbound.type === 'hysteria2')).toBe(true);
+    });
+
+    test('keeps curated public http subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '10-public-http-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        expect(result.runnable).toBe(true);
+        expect(result.config?.outbounds?.filter((outbound) => outbound.type === 'http')).toHaveLength(2);
+    });
+
+    test('keeps curated public vless grpc subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '11-public-vless-grpc-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        const grpcOutbounds = (result.config?.outbounds ?? []).filter(
+            (outbound) => outbound.type === 'vless' && outbound.transport?.type === 'grpc'
+        );
+
+        expect(result.runnable).toBe(true);
+        expect(grpcOutbounds).toHaveLength(2);
+        expect(grpcOutbounds[0]).toMatchObject({
+            tls: {
+                reality: {
+                    enabled: true,
+                },
+            },
+        });
+    });
+
+    test('keeps curated public vmess variants subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '12-public-vmess-variants-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        const vmessOutbounds = (result.config?.outbounds ?? []).filter(
+            (outbound) => outbound.type === 'vmess'
+        );
+
+        expect(result.runnable).toBe(true);
+        expect(vmessOutbounds).toHaveLength(2);
+        expect(vmessOutbounds.some((outbound) => outbound.transport?.type === 'ws')).toBe(true);
+        expect(vmessOutbounds.some((outbound) => outbound.transport === undefined)).toBe(true);
+    });
+
+    test('keeps curated public vmess grpc subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '13-public-vmess-grpc-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        const grpcOutbounds = (result.config?.outbounds ?? []).filter(
+            (outbound) => outbound.type === 'vmess' && outbound.transport?.type === 'grpc'
+        );
+
+        expect(result.runnable).toBe(true);
+        expect(grpcOutbounds).toHaveLength(2);
+        expect(grpcOutbounds.map((outbound) => outbound.transport?.service_name)).toEqual([
+            'webinar',
+            'web',
+        ]);
+    });
+
+    test('keeps curated public trojan tls subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '14-public-trojan-tls-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        const trojanOutbounds = (result.config?.outbounds ?? []).filter(
+            (outbound) => outbound.type === 'trojan'
+        );
+
+        expect(result.runnable).toBe(true);
+        expect(trojanOutbounds).toHaveLength(2);
+        expect(trojanOutbounds.every((outbound) => outbound.tls?.enabled === true)).toBe(true);
+    });
+
+    test('keeps curated public vless ws subset runnable', () => {
+        const input = readFileSync(join(REAL_DIR, '15-public-vless-ws-subset.yaml'), 'utf-8');
+        const result = migrateClashConfig(input, {
+            targetProfile: 'auto',
+            emitReport: true,
+        });
+
+        const wsOutbounds = (result.config?.outbounds ?? []).filter(
+            (outbound) => outbound.type === 'vless' && outbound.transport?.type === 'ws'
+        );
+        const alpnOutbound = wsOutbounds.find((outbound) => outbound.tag === 'KR_speednode_0011');
+
+        expect(result.runnable).toBe(true);
+        expect(wsOutbounds).toHaveLength(2);
+        expect(alpnOutbound).toMatchObject({
+            tls: {
+                alpn: ['http/1.1'],
+                utls: {
+                    enabled: true,
+                    fingerprint: 'random',
+                },
+            },
+            transport: {
+                type: 'ws',
+                path: '/danfeng',
+            },
+        });
     });
 });

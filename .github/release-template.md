@@ -1,30 +1,9 @@
-## Summary
+本仓库不再在此维护版本正文。
 
-- Release version: `vX.Y.Z`
-- Release date: `YYYY-MM-DD`
-- Scope: `core / cli / web / docs`
+请以 [`docs/release-notes.md`](../docs/release-notes.md) 作为单一来源，并在发版时执行：
 
-## Highlights
+```bash
+bun run release:notes
+```
 
-1. 
-2. 
-3. 
-
-## Breaking Changes
-
-- None
-
-## Migration Notes
-
-- None
-
-## Verification
-
-- [ ] `bun run release:check`
-- [ ] Manual CLI sanity check
-- [ ] Manual Web API sanity check
-
-## Artifacts
-
-- npm package: `subbridge@X.Y.Z`
-- Git tag: `vX.Y.Z`
+将当前版本输出内容直接作为 Release 正文提交。

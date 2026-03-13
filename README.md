@@ -3,7 +3,7 @@
 A configuration migrator for Clash / Clash.Meta.
 Outputs runnable sing-box configs with explainable migration reports.
 
-## V1 Scope
+## v0.2.0 Scope
 
 - First release — only the current approach is maintained
 - No backward compatibility with previous schemes
@@ -18,8 +18,8 @@ Outputs runnable sing-box configs with explainable migration reports.
 ## Features
 
 - CLI and Web API
-- Proxy protocols: `ss / vmess / trojan / vless / hysteria2 / http`
-- Full migration pipeline: groups, rules, DNS, TUN
+- Clash / Clash.Meta YAML to sing-box migration
+- Full migration pipeline: proxies, groups, rules, DNS, TUN
 - Provider prefetch & expansion:
   - `proxy-provider` cache expanded into real proxy nodes
   - `rule-provider` cache expanded into inline rule_set
@@ -81,6 +81,7 @@ API:
 bun run lint
 bun run test
 bun run build
+bun run verify:fixtures
 bun run smoke
 bun run proxy:smoke
 bun run release:check

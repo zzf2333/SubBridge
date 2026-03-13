@@ -11,7 +11,7 @@ export function validateSchema(config: SingBoxConfig): {
         valid: result.valid,
         issues: result.errors.map((message) => ({
             id: crypto.randomUUID(),
-            code: MigrationErrorCode.SCHEMA_VALIDATION_FAILED,
+            code: MigrationErrorCode.VALIDATION_FAILED,
             level: 'fatal',
             module: 'general',
             message,

@@ -9,6 +9,9 @@ PROXY_URL="http://127.0.0.1:7893"
 SING_BOX_BIN="sing-box"
 KEEP_TUN=0
 KEEP_TMP=0
+PROBE_204_URL="https://www.gstatic.com/generate_204"
+PROBE_PAGE_URL="https://www.youtube.com/"
+PROBE_IP_URL="https://api.ipify.org"
 
 TMP_DIR="$(mktemp -d)"
 TEST_CONFIG="$TMP_DIR/test-config.json"
@@ -26,6 +29,9 @@ Options:
   -b, --bin <path>         sing-box binary (default: sing-box)
       --keep-tun           keep tun inbound in test config (default: remove tun for non-root tests)
       --keep-tmp           keep temp files and sing-box log
+      --probe-204-url <u>  override the 204 probe URL
+      --probe-page-url <u> override the page probe URL
+      --probe-ip-url <u>   override the egress IP probe URL
   -h, --help               show help
 EOF
 }
@@ -51,6 +57,18 @@ while [[ $# -gt 0 ]]; do
         --keep-tmp)
             KEEP_TMP=1
             shift
+            ;;
+        --probe-204-url)
+            PROBE_204_URL="$2"
+            shift 2
+            ;;
+        --probe-page-url)
+            PROBE_PAGE_URL="$2"
+            shift 2
+            ;;
+        --probe-ip-url)
+            PROBE_IP_URL="$2"
+            shift 2
             ;;
         -h|--help)
             usage
@@ -86,19 +104,39 @@ fi
 if [[ "$KEEP_TUN" -eq 1 ]]; then
     cp "$CONFIG_PATH" "$TEST_CONFIG"
 else
-    node - <<'NODE' "$CONFIG_PATH" "$TEST_CONFIG"
+    node - <<'NODE' "$CONFIG_PATH" "$TEST_CONFIG" "$PROXY_URL"
 const fs = require('fs');
 const inputPath = process.argv[2];
 const outputPath = process.argv[3];
+const proxyUrl = process.argv[4];
 const config = JSON.parse(fs.readFileSync(inputPath, 'utf8'));
+
+const parsedProxyUrl = new URL(proxyUrl);
+const proxyHost = parsedProxyUrl.hostname || '127.0.0.1';
+const proxyPort = Number(parsedProxyUrl.port || (parsedProxyUrl.protocol === 'https:' ? '443' : '80'));
+
 config.inbounds = (config.inbounds || []).filter((inbound) => inbound.type !== 'tun');
-for (const inbound of config.inbounds || []) {
-  if (inbound.type === 'mixed') {
-    inbound.listen = inbound.listen || '127.0.0.1';
-    inbound.listen_port = inbound.listen_port || 7893;
-    inbound.set_system_proxy = false;
-  }
+if (!Array.isArray(config.inbounds)) {
+  config.inbounds = [];
 }
+
+let mixedInbound = config.inbounds.find((inbound) => inbound.type === 'mixed');
+if (!mixedInbound) {
+  mixedInbound = {
+    type: 'mixed',
+    tag: 'mixed-in',
+  };
+  config.inbounds.unshift(mixedInbound);
+}
+
+mixedInbound.listen = proxyHost;
+mixedInbound.listen_port = proxyPort;
+mixedInbound.set_system_proxy = false;
+
+if (config.experimental && config.experimental.clash_api) {
+  delete config.experimental.clash_api;
+}
+
 fs.writeFileSync(outputPath, JSON.stringify(config, null, 2));
 NODE
 fi
@@ -139,17 +177,17 @@ echo "Proxy smoke test"
 echo "  config: $CONFIG_PATH"
 echo "  proxy : $PROXY_URL"
 
-if ! check_http_code "gstatic generate_204" "https://www.gstatic.com/generate_204" "204"; then
+if ! check_http_code "gstatic generate_204" "$PROBE_204_URL" "204"; then
     echo "gstatic probe failed." >&2
     exit 1
 fi
 
-if ! check_http_code "youtube homepage" "https://www.youtube.com/" "2xx_or_3xx"; then
+if ! check_http_code "youtube homepage" "$PROBE_PAGE_URL" "2xx_or_3xx"; then
     echo "YouTube probe failed." >&2
     exit 1
 fi
 
-IP_RESULT="$(curl -sS -m 15 --proxy "$PROXY_URL" https://api.ipify.org || true)"
+IP_RESULT="$(curl -sS -m 15 --proxy "$PROXY_URL" "$PROBE_IP_URL" || true)"
 if [[ -z "$IP_RESULT" ]]; then
     echo "Failed to fetch egress IP via proxy." >&2
     exit 1

@@ -1,0 +1,26 @@
+# 来源：
+# https://gist.githubusercontent.com/zhy121212/eb443fd1485e342106e5ad402ee7beb4/raw/mihomo.yaml
+# 抓取日期：2026-03-13
+# 说明：从公开 Mihomo 配置中抽取，仅保留 Hysteria2 节点。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "🇺🇸美国1 | ⬇️ 3.1MB/s|Netflix|Openai"
+    type: hysteria2
+    server: netcupus.alisaku.com
+    port: 34444
+    password: 10193f1d-9a4d-457a-b668-bdeb240e092c
+    sni: apps.apple.com
+    skip-cert-verify: true
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "🇺🇸美国1 | ⬇️ 3.1MB/s|Netflix|Openai"
+
+rules:
+  - MATCH,Proxy

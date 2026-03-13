@@ -1,0 +1,52 @@
+# 来源：
+# https://raw.githubusercontent.com/zhangkaiitugithub/passcro/main/speednodes.yaml
+# 抓取日期：2026-03-13
+# 说明：公开 VLESS WebSocket 配置子集，覆盖 `ws-opts`、`alpn` 与 `client-fingerprint` 的真实上游写法。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "KR_speednode_0011"
+    type: vless
+    server: 220.73.70.34
+    port: 50001
+    uuid: 948fac3c-42bf-41a6-a5f9-704d36ff0d8d
+    tls: true
+    skip-cert-verify: false
+    client-fingerprint: random
+    servername: snippet.fgfw.de5.net
+    alpn:
+      - http/1.1
+    network: ws
+    ws-opts:
+      path: /danfeng
+      headers:
+        Host: snippet.fgfw.de5.net
+    udp: true
+
+  - name: "HK_speednode_0007"
+    type: vless
+    server: 83.229.123.173
+    port: 443
+    uuid: 14b02e2a-8930-4afb-8412-ea4a4954ca5b
+    tls: true
+    skip-cert-verify: false
+    servername: ylnhh.cc.cd
+    network: ws
+    ws-opts:
+      path: /Telegram🇨🇳@WangCai2
+      headers:
+        Host: ylnhh.cc.cd
+    udp: true
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "KR_speednode_0011"
+      - "HK_speednode_0007"
+
+rules:
+  - MATCH,Proxy

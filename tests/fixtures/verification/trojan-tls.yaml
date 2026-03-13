@@ -1,0 +1,23 @@
+mixed-port: 7890
+mode: rule
+
+proxies:
+  - name: Trojan TLS
+    type: trojan
+    server: 127.0.0.1
+    port: 22443
+    password: trojan-password
+    sni: runtime.local
+    alpn:
+      - h2
+      - http/1.1
+    skip-cert-verify: true
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - Trojan TLS
+
+rules:
+  - MATCH,Proxy

@@ -1,0 +1,36 @@
+# 来源：
+# https://raw.githubusercontent.com/zhangkaiitugithub/passcro/main/speednodes.yaml
+# 抓取日期：2026-03-13
+# 说明：公开 Trojan TLS 配置子集，覆盖 `sni` 与 `skip-cert-verify` 的真实上游写法。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "CN_speednode_0005"
+    type: trojan
+    server: sg03.stimaysmhy8.com
+    port: 35902
+    password: d5fa43f9-1ace-4b8f-b865-627e67b1fe37
+    sni: jsygouer.weixin-baidu-qq.com
+    skip-cert-verify: true
+    udp: true
+
+  - name: "🇺🇸 US| TROJAN-1I"
+    type: trojan
+    server: test.api-aws.com
+    port: 443
+    password: 56102625-5cc2-428d-9749-034fd91a8db5
+    sni: test.api-aws.com
+    udp: true
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "CN_speednode_0005"
+      - "🇺🇸 US| TROJAN-1I"
+
+rules:
+  - MATCH,Proxy

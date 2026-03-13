@@ -16,9 +16,9 @@ export interface CheckResult {
  * Check if sing-box is installed on the system
  * @returns Promise<boolean> - true if sing-box is installed
  */
-export async function isSingboxInstalled(): Promise<boolean> {
+export async function isSingboxInstalled(binaryPath = 'sing-box'): Promise<boolean> {
     try {
-        const result = await execCommand('sing-box', ['version']);
+        const result = await execCommand(binaryPath, ['version']);
         return result.exitCode === 0;
     } catch {
         return false;
@@ -29,9 +29,9 @@ export async function isSingboxInstalled(): Promise<boolean> {
  * Get sing-box version
  * @returns Promise<string | null> - version string or null if not installed
  */
-export async function getSingboxVersion(): Promise<string | null> {
+export async function getSingboxVersion(binaryPath = 'sing-box'): Promise<string | null> {
     try {
-        const result = await execCommand('sing-box', ['version']);
+        const result = await execCommand(binaryPath, ['version']);
         if (result.exitCode === 0 && result.stdout) {
             // Extract version from first line
             const firstLine = result.stdout.split('\n')[0];
@@ -48,9 +48,12 @@ export async function getSingboxVersion(): Promise<string | null> {
  * @param configPath - path to configuration file
  * @returns Promise<CheckResult> - validation result
  */
-export async function checkConfig(configPath: string): Promise<CheckResult> {
+export async function checkConfig(
+    configPath: string,
+    binaryPath = 'sing-box'
+): Promise<CheckResult> {
     try {
-        const result = await execCommand('sing-box', ['check', '-c', configPath]);
+        const result = await execCommand(binaryPath, ['check', '-c', configPath]);
 
         const errors: string[] = [];
         const output = result.stderr || result.stdout || '';
@@ -87,9 +90,9 @@ export async function checkConfig(configPath: string): Promise<CheckResult> {
  * @param configPath - path to configuration file
  * @returns Promise<string> - formatted configuration or empty string on error
  */
-export async function formatConfig(configPath: string): Promise<string> {
+export async function formatConfig(configPath: string, binaryPath = 'sing-box'): Promise<string> {
     try {
-        const result = await execCommand('sing-box', ['format', '-c', configPath]);
+        const result = await execCommand(binaryPath, ['format', '-c', configPath]);
         if (result.exitCode === 0) {
             return result.stdout || '';
         }

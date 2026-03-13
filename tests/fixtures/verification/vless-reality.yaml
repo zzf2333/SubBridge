@@ -1,0 +1,25 @@
+mixed-port: 7890
+mode: rule
+
+proxies:
+  - name: VLESS Reality
+    type: vless
+    server: 127.0.0.1
+    port: 23443
+    uuid: 87654321-4321-4321-4321-210987654321
+    flow: xtls-rprx-vision
+    tls: true
+    sni: runtime.local
+    client-fingerprint: chrome
+    reality-opts:
+      public-key: xHhtVCB5ydmnJa3fzyqnZnw1clakkk5Jn4NVsbhermQ
+      short-id: 0123456789abcdef
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - VLESS Reality
+
+rules:
+  - MATCH,Proxy

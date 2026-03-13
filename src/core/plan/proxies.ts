@@ -177,9 +177,6 @@ function buildProxyPayload(
     if ('packetEncoding' in proxy && proxy.packetEncoding) {
         payload.packet_encoding = proxy.packetEncoding;
     }
-    if ('reality' in proxy && proxy.reality) {
-        payload.reality = proxy.reality;
-    }
     if ('obfs' in proxy && proxy.obfs) {
         payload.obfs = proxy.obfs;
     }
@@ -188,7 +185,7 @@ function buildProxyPayload(
         payload.down_mbps = proxy.bandwidth.downMbps;
     }
     if (proxy.tls) {
-        payload.tls = {
+        const tlsPayload: Record<string, unknown> = {
             enabled: proxy.tls.enabled,
             insecure: proxy.tls.insecure,
             server_name: proxy.tls.serverName,
@@ -200,9 +197,20 @@ function buildProxyPayload(
                   }
                 : undefined,
         };
+        if ('reality' in proxy && proxy.reality) {
+            tlsPayload.reality = {
+                enabled: true,
+                public_key: proxy.reality.publicKey,
+                short_id: proxy.reality.shortId,
+            };
+        }
+        payload.tls = tlsPayload;
     }
     if (proxy.transport) {
-        payload.transport = buildTransportPayload(proxy.transport);
+        const transportPayload = buildTransportPayload(proxy.transport);
+        if (transportPayload) {
+            payload.transport = transportPayload;
+        }
     }
     if (proxy.plugin && proxy.type === 'ss') {
         const pluginMapping = serializeShadowsocksPlugin(proxy.plugin);
@@ -225,7 +233,7 @@ function shouldDegradeProxyInPlanner(
 
 function buildTransportPayload(
     transport: Exclude<NormalizedProxy['transport'], undefined>
-): Record<string, unknown> {
+): Record<string, unknown> | undefined {
     switch (transport.type) {
         case 'ws':
             return {
@@ -255,7 +263,7 @@ function buildTransportPayload(
                 host: transport.host,
             };
         case 'tcp':
-            return { type: 'tcp' };
+            return undefined;
     }
 }
 

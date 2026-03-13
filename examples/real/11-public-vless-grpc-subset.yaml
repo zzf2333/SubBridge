@@ -1,0 +1,53 @@
+# 来源：
+# https://raw.githubusercontent.com/asgharkapk/Sub-Config-Extractor/refs/heads/main/output_configs/clash/Mosifree/-Reality.yaml
+# 抓取日期：2026-03-13
+# 说明：从公开 VLESS 配置中抽取，覆盖 grpc 与 grpc + reality 变体。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "[VLESS] 🇦🇹@FREE2CONFIG _1"
+    server: 152.53.49.144
+    port: 22955
+    type: vless
+    tls: true
+    uuid: 63f92f3c-447c-4283-80b9-0af8e164cdad
+    servername: one-piece.com
+    network: grpc
+    grpc-opts:
+      grpc-mode: gun
+      grpc-service-name: grpc
+    flow: xtls-rprx-vision
+    reality-opts:
+      public-key: 9Mt_Y8J_qDb1khlieWnhDSAq-kGtLHw6aOKgkAzOMms
+      short-id: 6ba85179e30d4fc2
+    client-fingerprint: chrome
+    skip-cert-verify: true
+    udp: true
+    tfo: false
+
+  - name: "[VLESS] 🇺🇸@FREE2CONFIG _2"
+    server: 45.82.251.208
+    port: 8880
+    type: vless
+    tls: true
+    uuid: 8dc7722c-2767-4eea-a28b-2f8daacc07e3
+    network: grpc
+    grpc-opts:
+      grpc-mode: gun
+      grpc-service-name: ""
+    flow: ""
+    skip-cert-verify: true
+    tfo: false
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "[VLESS] 🇦🇹@FREE2CONFIG _1"
+      - "[VLESS] 🇺🇸@FREE2CONFIG _2"
+
+rules:
+  - MATCH,Proxy

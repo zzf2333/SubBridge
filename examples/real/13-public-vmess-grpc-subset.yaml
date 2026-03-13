@@ -1,0 +1,47 @@
+# 来源：
+# https://gist.githubusercontent.com/liliangyin/bb5e7bb839c05fdde91ab9bfe0db2474/raw/clash.yaml
+# 抓取日期：2026-03-13
+# 说明：公开 VMess gRPC 配置子集，覆盖内联风格来源中的 `grpc-service-name` 发射。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "🇺🇸 US| VLESS GRPC-1A"
+    type: vmess
+    server: dc6.api-aws.com
+    port: 8443
+    uuid: 793c085f-bb35-4455-9681-69a81cc125b9
+    alterId: 0
+    cipher: auto
+    tls: true
+    servername: dc6.api-aws.com
+    network: grpc
+    grpc-opts:
+      grpc-service-name: webinar
+    udp: true
+
+  - name: "🇺🇸 US| V2RAY GRPC-1D"
+    type: vmess
+    server: test.api-aws.com
+    port: 8443
+    uuid: 9c471a7a-093c-4669-a7b2-650d568dc91d
+    alterId: 0
+    cipher: auto
+    tls: true
+    servername: test.api-aws.com
+    network: grpc
+    grpc-opts:
+      grpc-service-name: web
+    udp: true
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "🇺🇸 US| VLESS GRPC-1A"
+      - "🇺🇸 US| V2RAY GRPC-1D"
+
+rules:
+  - MATCH,Proxy

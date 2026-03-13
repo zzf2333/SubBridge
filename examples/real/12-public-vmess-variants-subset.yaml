@@ -1,0 +1,50 @@
+# 来源：
+# https://raw.githubusercontent.com/hossein-shayesteh/v2ray-config/refs/heads/main/generated/clashConfig.yaml
+# https://gist.githubusercontent.com/iso8434/fb962ef570ba339ffa91cb7d644f0218/raw/all.yaml
+# 抓取日期：2026-03-13
+# 说明：组合公开 VMess 配置，覆盖 `ws + tls` 与 `tcp` 两类网络形态。
+
+mixed-port: 7890
+mode: rule
+log-level: info
+
+proxies:
+  - name: "🇰🇷 VMESS 01"
+    type: vmess
+    server: seoul03.zgjok.com
+    port: 443
+    uuid: 72a0dac4-9689-4a57-b164-5c65bfa94772
+    alterId: 0
+    udp: true
+    skip-cert-verify: true
+    cipher: auto
+    network: ws
+    tls: true
+    servername: seoul03.zgjok.com
+    ws-opts:
+      path: /
+      headers:
+        Host: seoul03.zgjok.com
+
+  - name: "HK_5|5.4MB/s"
+    type: vmess
+    server: a.cdn-bilibili.cn
+    port: 30003
+    uuid: 69de9a52-36b0-4265-a3cf-d06bcefe713d
+    alterId: 0
+    udp: true
+    skip-cert-verify: false
+    cipher: auto
+    network: tcp
+    tls: false
+    xudp: true
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - "🇰🇷 VMESS 01"
+      - "HK_5|5.4MB/s"
+
+rules:
+  - MATCH,Proxy

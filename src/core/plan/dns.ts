@@ -103,13 +103,6 @@ export function planDns(
             sourcePaths: [normalizedDns.sourcePath],
         });
 
-        // outbound:any 规则防止 DNS 循环（代理出站解析服务器地址时用本地 DNS）
-        rules.unshift({
-            type: 'outbound-any',
-            payload: { outbound: 'any', server: realDnsTag },
-            sourcePaths: [normalizedDns.sourcePath],
-        });
-
         finalDnsTag = DNS_REMOTE_TAG;
 
         dnsSplitDecisions.push({
@@ -117,7 +110,7 @@ export function planDns(
             kind: 'fallback-map',
             targetModule: 'dns',
             summary: `Add remote DNS ${DNS_REMOTE_ADDR} via proxy and set as default`,
-            reason: 'All DNS servers are domestic; remote DNS through proxy prevents DNS poisoning for proxied domains',
+            reason: 'All DNS servers are domestic; remote DNS through proxy prevents DNS poisoning for proxied domains while route.default_domain_resolver keeps outbound endpoint resolution on local DNS',
             sourcePaths: [normalizedDns.sourcePath],
         });
     }

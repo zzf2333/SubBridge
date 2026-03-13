@@ -1,0 +1,24 @@
+mixed-port: 7890
+mode: rule
+
+proxies:
+  - name: HTTP Upstream
+    type: http
+    server: 127.0.0.1
+    port: 25080
+    username: runtime-user
+    password: runtime-pass
+    path: /proxy
+    headers:
+      X-Test:
+        - runtime
+        - fixture
+
+proxy-groups:
+  - name: Proxy
+    type: select
+    proxies:
+      - HTTP Upstream
+
+rules:
+  - MATCH,Proxy

@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { runConvert } from './commands/convert';
 import { runValidate } from './commands/validate';
+import { runVerify } from './commands/verify';
 
 const program = new Command();
 
@@ -42,5 +43,18 @@ program
     .requiredOption('-i, --input <file>', 'sing-box JSON config file')
     .option('--with-singbox', 'Also validate with sing-box check command', false)
     .action(runValidate);
+
+program
+    .command('verify')
+    .description('Verify a generated sing-box configuration end-to-end')
+    .requiredOption('-i, --input <file>', 'sing-box JSON config file')
+    .option('-r, --report <file>', 'Write verification report JSON file')
+    .option('--no-singbox-check', 'Skip sing-box check')
+    .option('--no-smoke', 'Skip proxy smoke validation')
+    .option('--proxy <url>', 'Local proxy URL for smoke validation', 'http://127.0.0.1:7893')
+    .option('--bin <path>', 'sing-box binary path', 'sing-box')
+    .option('--keep-tun', 'Keep original tun inbound during smoke validation', false)
+    .option('--keep-tmp', 'Keep smoke temp files and logs', false)
+    .action(runVerify);
 
 program.parse();
