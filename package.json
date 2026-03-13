@@ -1,7 +1,7 @@
 {
     "name": "subbridge",
-    "version": "0.2.0",
-    "description": "A modern proxy subscription converter for sing-box",
+    "version": "0.2.1",
+    "description": "SubBridge: Clash / Clash.Meta YAML to sing-box Converter with runnable output and verify workflow",
     "type": "module",
     "bin": {
         "subbridge": "./dist/cli.js"
@@ -11,6 +11,7 @@
         "build": "bun build src/cli/index.ts --outfile dist/cli.js --target bun && bun build src/web/server.ts --outfile dist/web.js --target bun",
         "smoke": "./scripts/smoke.sh",
         "proxy:smoke": "./scripts/proxy-smoke.sh",
+        "seo:check": "bun scripts/seo-check.ts",
         "verify:fixtures": "bun scripts/verify-fixtures.ts",
         "check:public-real": "bun scripts/check-public-real.ts",
         "release:notes": "bun scripts/release-notes.ts",
@@ -22,11 +23,15 @@
         "format": "prettier --write \"src/**/*.ts\""
     },
     "keywords": [
-        "proxy",
         "clash",
+        "clash-meta",
         "sing-box",
-        "subscription",
-        "converter"
+        "proxy",
+        "converter",
+        "subscription-converter",
+        "clash-to-sing-box",
+        "sing-box-config",
+        "config-migrator"
     ],
     "files": [
         "dist",
@@ -39,6 +44,7 @@
         "type": "git",
         "url": "https://github.com/zzf2333/SubBridge.git"
     },
+    "homepage": "https://github.com/zzf2333/SubBridge",
     "dependencies": {
         "hono": "^4.0.0",
         "js-yaml": "^4.1.0",

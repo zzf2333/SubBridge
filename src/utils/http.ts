@@ -1,3 +1,5 @@
+import { APP_NAME, APP_VERSION } from '../meta';
+
 // Simple HTTP fetch with timeout and size limit
 const DEFAULT_TIMEOUT = 10_000; // 10s
 const MAX_RESPONSE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -24,7 +26,7 @@ export async function fetchText(
         try {
             response = await fetch(currentUrl, {
                 signal: controller.signal,
-                headers: { 'User-Agent': 'SubBridge/0.1.0' },
+                headers: { 'User-Agent': `${APP_NAME}/${APP_VERSION}` },
                 redirect: 'manual',
             });
         } catch (e) {

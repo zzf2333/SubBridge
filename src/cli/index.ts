@@ -3,13 +3,14 @@ import { Command } from 'commander';
 import { runConvert } from './commands/convert';
 import { runValidate } from './commands/validate';
 import { runVerify } from './commands/verify';
+import { APP_NAME, APP_TAGLINE, APP_VERSION } from '../meta';
 
 const program = new Command();
 
 program
     .name('subbridge')
-    .description('Convert Clash subscriptions to sing-box configurations')
-    .version('0.1.0');
+    .description(`${APP_NAME}: ${APP_TAGLINE}`)
+    .version(APP_VERSION);
 
 program
     .command('convert')

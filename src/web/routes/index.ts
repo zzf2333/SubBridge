@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { APP_NAME, APP_REPOSITORY_URL, APP_TAGLINE, APP_VERSION } from '../../meta';
 
 const app = new Hono();
 
@@ -8,7 +9,7 @@ const HTML_PAGE = `
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SubBridge - Clash 转 sing-box 订阅转换</title>
+    <title>${APP_NAME}: ${APP_TAGLINE}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -150,12 +151,13 @@ const HTML_PAGE = `
 </head>
 <body>
     <div class="container">
-        <h1>🌉 SubBridge</h1>
-        <p class="subtitle">Clash 订阅转换为 sing-box 配置</p>
+        <h1>${APP_NAME}</h1>
+        <p class="subtitle">${APP_TAGLINE}</p>
+        <p class="subtitle" style="margin-top: -18px;">适合做 Clash 转 sing-box、Clash 订阅转换和 Clash 配置迁移</p>
 
         <form id="convertForm">
             <div class="form-group">
-                <label for="clashUrl">Clash 订阅链接</label>
+                <label for="clashUrl">Clash / Clash.Meta YAML 订阅链接</label>
                 <input
                     type="text"
                     id="clashUrl"
@@ -176,7 +178,7 @@ const HTML_PAGE = `
         </div>
 
         <div class="footer">
-            <p>SubBridge v0.1.0 | <a href="https://github.com/zzf2333/SubBridge" target="_blank">GitHub</a></p>
+            <p>${APP_NAME} v${APP_VERSION} | <a href="${APP_REPOSITORY_URL}" target="_blank">GitHub</a></p>
         </div>
     </div>
 
