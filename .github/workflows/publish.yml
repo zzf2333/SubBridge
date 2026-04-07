@@ -1,0 +1,72 @@
+name: Publish
+
+on:
+    push:
+        tags:
+            - 'v*'
+
+jobs:
+    publish:
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        permissions:
+            contents: read
+            id-token: write  # npm provenance
+        env:
+            SING_BOX_VERSION: '1.13.1'
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: '1.3.5'
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install Dependencies
+              run: bun install --frozen-lockfile
+
+            - name: Install sing-box
+              run: |
+                  curl -fsSL \
+                    -o /tmp/sing-box.tar.gz \
+                    "https://github.com/SagerNet/sing-box/releases/download/v${SING_BOX_VERSION}/sing-box-${SING_BOX_VERSION}-linux-amd64.tar.gz"
+                  tar -xzf /tmp/sing-box.tar.gz -C /tmp
+                  sudo install -m 0755 \
+                    "/tmp/sing-box-${SING_BOX_VERSION}-linux-amd64/sing-box" \
+                    /usr/local/bin/sing-box
+
+            - name: Lint
+              run: bun run lint
+
+            - name: Test
+              run: bun run test
+
+            - name: Build
+              run: bun run build
+
+            - name: SEO Check
+              run: bun run seo:check
+
+            - name: Smoke
+              run: REQUIRE_WEB_SMOKE=1 bun run smoke
+
+            - name: Verify tag matches package version
+              run: |
+                  TAG="${GITHUB_REF_NAME}"
+                  PKG_VERSION="v$(node -p "require('./package.json').version")"
+                  if [ "$TAG" != "$PKG_VERSION" ]; then
+                    echo "Tag $TAG does not match package.json version $PKG_VERSION"
+                    exit 1
+                  fi
+
+            - name: Publish to npm
+              run: npm publish --provenance --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
