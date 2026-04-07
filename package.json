@@ -1,5 +1,5 @@
 {
-    "name": "subbridge",
+    "name": "@0xsnx/subbridge",
     "version": "0.3.0",
     "description": "SubBridge: Clash / Clash.Meta YAML to sing-box node injector — extract nodes, auto group by country, inject into template",
     "type": "module",

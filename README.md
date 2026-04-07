@@ -4,8 +4,8 @@
   <p><sub>Clash / Clash.Meta YAML → sing-box 节点注入器 · Clash 转 sing-box · Clash 订阅转换 · 生成完整可运行的 sing-box 配置</sub></p>
   <a href="https://github.com/zzf2333/SubBridge/stargazers"><img src="https://img.shields.io/github/stars/zzf2333/SubBridge?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/zzf2333/SubBridge/releases"><img src="https://img.shields.io/github/v/tag/zzf2333/SubBridge?label=version&style=flat-square" alt="Version"></a>
-  <a href="https://www.npmjs.com/package/subbridge"><img src="https://img.shields.io/npm/v/subbridge?style=flat-square&label=npm" alt="npm"></a>
-  <a href="https://www.npmjs.com/package/subbridge"><img src="https://img.shields.io/npm/dm/subbridge?style=flat-square" alt="npm downloads"></a>
+  <a href="https://www.npmjs.com/package/@0xsnx/subbridge"><img src="https://img.shields.io/npm/v/@0xsnx%2Fsubbridge?style=flat-square&label=npm" alt="npm"></a>
+  <a href="https://www.npmjs.com/package/@0xsnx/subbridge"><img src="https://img.shields.io/npm/dm/@0xsnx%2Fsubbridge?style=flat-square" alt="npm downloads"></a>
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen?style=flat-square" alt="Node">
   <img src="https://img.shields.io/badge/bun-%3E%3D1.3.5-f472b6?style=flat-square" alt="Bun">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg?style=flat-square" alt="License"></a>
@@ -55,7 +55,7 @@ subbridge serve
 ## 安装
 
 ```bash
-npm install -g subbridge
+npm install -g @0xsnx/subbridge
 ```
 
 或从源码安装（需要 Bun 1.3.5+）：
