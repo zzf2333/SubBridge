@@ -1,64 +1,95 @@
 import { describe, expect, test } from 'bun:test';
-import { validateRunnableConfig } from '../../../src/core/validate/runnable';
-import type { MigrationPlan } from '../../../src/core/types/migration-plan';
-import type { SingBoxConfig } from '../../../src/core/types/singbox';
+import { validateOutboundRefs } from '@/core/validate/runnable';
 
-function createPlan(profile: MigrationPlan['profile']): MigrationPlan {
-    return {
-        profile,
-        inbounds: [],
-        outbounds: [],
-        dns: undefined,
-        route: {
-            id: 'route-1',
-            sourcePaths: [],
-            status: 'exact',
-            decision: 'direct-map',
-            notes: [],
-            rules: [],
-            ruleSets: [],
-            final: undefined,
-        },
-        patches: [],
-        repairs: [],
-        issues: [],
-        decisions: [],
-    };
-}
-
-describe('validateRunnableConfig', () => {
-    test('rejects missing outbounds and route final', () => {
-        const result = validateRunnableConfig({}, createPlan('proxy-only'));
-
-        expect(result.valid).toBe(false);
-        expect(result.issues.some((issue) => issue.message.includes('No outbounds'))).toBe(true);
-        expect(result.issues.some((issue) => issue.message.includes('route.final'))).toBe(true);
+describe('validateOutboundRefs', () => {
+    test('空配置返回空数组', () => {
+        const result = validateOutboundRefs({});
+        expect(result).toEqual([]);
     });
 
-    test('rejects missing mixed inbound for mixed-client profile', () => {
-        const config: SingBoxConfig = {
-            outbounds: [{ type: 'direct', tag: 'direct' }],
-            route: { final: 'direct' },
+    test('无 selector/urltest 时返回空数组', () => {
+        const config = {
+            outbounds: [
+                { type: 'shadowsocks', tag: 'ss-01', server: '1.2.3.4', server_port: 443 },
+                { type: 'direct', tag: 'direct' },
+            ],
         };
-
-        const result = validateRunnableConfig(config, createPlan('mixed-client'));
-
-        expect(result.valid).toBe(false);
-        expect(result.issues.some((issue) => issue.message.includes('mixed inbound'))).toBe(true);
+        const result = validateOutboundRefs(config);
+        expect(result).toEqual([]);
     });
 
-    test('accepts runnable tun-client config', () => {
-        const config: SingBoxConfig = {
-            inbounds: [{ type: 'tun', tag: 'tun-in' }],
-            outbounds: [{ type: 'direct', tag: 'direct' }],
-            dns: { servers: [{ tag: 'dns-0', type: 'udp', server: '8.8.8.8' }] },
-            route: { final: 'direct' },
+    test('引用全部闭合时返回空数组', () => {
+        const config = {
+            outbounds: [
+                {
+                    type: 'selector',
+                    tag: '🚀 节点',
+                    outbounds: ['♻️ 自动', 'ss-01'],
+                },
+                {
+                    type: 'urltest',
+                    tag: '♻️ 自动',
+                    outbounds: ['ss-01'],
+                    interval: '5m',
+                },
+                { type: 'shadowsocks', tag: 'ss-01', server: '1.2.3.4', server_port: 443 },
+            ],
         };
-        const plan = createPlan('tun-client');
+        const result = validateOutboundRefs(config);
+        expect(result).toEqual([]);
+    });
 
-        const result = validateRunnableConfig(config, plan);
+    test('存在未闭合引用时返回对应 tag', () => {
+        const config = {
+            outbounds: [
+                {
+                    type: 'selector',
+                    tag: '🚀 节点',
+                    outbounds: ['♻️ 自动', 'ss-01', 'missing-node'],
+                },
+                {
+                    type: 'urltest',
+                    tag: '♻️ 自动',
+                    outbounds: ['ss-01'],
+                },
+                { type: 'shadowsocks', tag: 'ss-01', server: '1.2.3.4', server_port: 443 },
+            ],
+        };
+        const result = validateOutboundRefs(config);
+        expect(result).toContain('missing-node');
+        expect(result).toHaveLength(1);
+    });
 
-        expect(result.valid).toBe(true);
-        expect(result.issues).toHaveLength(0);
+    test('跳过未替换的占位符 $nodes 和 $nodes:XX', () => {
+        const config = {
+            outbounds: [
+                {
+                    type: 'selector',
+                    tag: '🚀 节点',
+                    outbounds: ['$nodes', '$nodes:HK'],
+                },
+            ],
+        };
+        const result = validateOutboundRefs(config);
+        expect(result).toEqual([]);
+    });
+
+    test('相同未闭合引用只报告一次（去重）', () => {
+        const config = {
+            outbounds: [
+                {
+                    type: 'selector',
+                    tag: 'selector-a',
+                    outbounds: ['ghost-tag'],
+                },
+                {
+                    type: 'urltest',
+                    tag: 'urltest-a',
+                    outbounds: ['ghost-tag'],
+                },
+            ],
+        };
+        const result = validateOutboundRefs(config);
+        expect(result).toEqual(['ghost-tag']);
     });
 });

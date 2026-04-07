@@ -12,7 +12,7 @@ SubBridge 是一个面向 Clash / Clash.Meta YAML 的工具，适合需要做 Cl
     topicDoc: `# 如何将 Clash / Clash.Meta YAML 转换为 sing-box 配置
 
 \`\`\`bash
-subbridge convert -i clash.yaml -o singbox.json
+subbridge build -i clash.yaml -o singbox.json
 subbridge verify -i singbox.json
 \`\`\`
 `,

@@ -14,7 +14,6 @@ export interface SeoAuditInput {
 const README_REQUIRED_PHRASES = [
     'Clash 转 sing-box',
     'Clash 订阅转换',
-    'Clash 配置迁移',
     'Clash.Meta YAML',
     'sing-box 配置',
 ];
@@ -56,7 +55,7 @@ export function auditSeoContent(input: SeoAuditInput): string[] {
         errors.push('专题文档缺少标准标题');
     }
 
-    if (!input.topicDoc.includes('subbridge convert')) {
+    if (!input.topicDoc.includes('subbridge build')) {
         errors.push('专题文档缺少 CLI 使用命令示例');
     }
 

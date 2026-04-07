@@ -137,6 +137,15 @@ if (config.experimental && config.experimental.clash_api) {
   delete config.experimental.clash_api;
 }
 
+// Remove rule_sets to avoid GitHub download on startup (smoke test doesn't need geo routing)
+if (config.route) {
+  delete config.route.rule_set;
+  config.route.rules = (config.route.rules || []).filter((r) => !r.rule_set);
+}
+if (config.dns) {
+  config.dns.rules = (config.dns.rules || []).filter((r) => !r.rule_set);
+}
+
 fs.writeFileSync(outputPath, JSON.stringify(config, null, 2));
 NODE
 fi
@@ -144,9 +153,25 @@ fi
 "$SING_BOX_BIN" run -c "$TEST_CONFIG" >"$LOG_FILE" 2>&1 &
 SB_PID=$!
 
-sleep 1
-if ! kill -0 "$SB_PID" >/dev/null 2>&1; then
-    echo "sing-box failed to start." >&2
+# Poll until mixed inbound is listening (up to 10s)
+READY=0
+for i in $(seq 1 20); do
+    sleep 0.5
+    if ! kill -0 "$SB_PID" >/dev/null 2>&1; then
+        echo "sing-box failed to start." >&2
+        tail -n 80 "$LOG_FILE" >&2 || true
+        exit 1
+    fi
+    _ph="${PROXY_URL#http://}"; _ph="${_ph%%:*}"
+    _pp="${PROXY_URL##*:}"
+    if nc -z "$_ph" "$_pp" >/dev/null 2>&1; then
+        READY=1
+        break
+    fi
+done
+
+if [[ "$READY" -eq 0 ]]; then
+    echo "sing-box did not become ready in time." >&2
     tail -n 80 "$LOG_FILE" >&2 || true
     exit 1
 fi

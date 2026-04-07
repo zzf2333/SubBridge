@@ -9,6 +9,65 @@
 - `### 开发说明` 用于记录当前版本的开发边界、交付点与验证结果
 - 发布时通过脚本按 `package.json` 当前版本自动提取，不再维护独立版本文档
 
+## v0.3.0
+
+### 提交文案
+
+`v0.3.0` is a ground-up rewrite of SubBridge from a "Clash config translator" to a **node injector**.
+
+The core model shift: instead of generating a complete sing-box config from scratch, SubBridge now takes a sing-box template you control, extracts nodes from your Clash subscription, and injects them into the template's placeholders. Routes, DNS, and inbound settings stay in your template — the tool only handles nodes.
+
+Highlights:
+
+1. New architecture: Fetch → Parse → Group → Convert → Load → Inject → Output
+   - Zero config required: built-in default template (TUN + geo rules + country groups)
+   - Bring your own template: `subbridge init -o my-template.json`, edit freely, use with `-t`
+
+2. Placeholder syntax (JSON-friendly, IDE-safe)
+   - `{ "$subbridge": "nodes" }` — expands to all node outbound objects
+   - `{ "$subbridge": "country_groups" }` — expands to per-country selector + urltest pairs
+   - `"$nodes"` — expands to all node tag list in string arrays
+   - `"$nodes:HK"` — expands to country-filtered node tags (23+ region codes)
+
+3. Country auto-grouping
+   - Built-in keyword regex map for 23 regions (Chinese and English, abbreviations, city names)
+   - Unmatched nodes go to `OTHER` (included in `$nodes`, excluded from country groups)
+
+4. Multi-source merging
+   - Accepts multiple `-i` inputs (local files and subscription URLs)
+   - Deduplication and unified injection
+
+5. sing-box 1.13 compatibility
+   - Removed deprecated `dns` outbound type
+   - Migrated to `action: "hijack-dns"` and `action: "sniff"` route rules
+   - Added `default_domain_resolver` in route config
+
+6. npm distribution
+   - Node.js 18+ compatible CLI build (`#!/usr/bin/env node`)
+   - `npm install -g subbridge`
+
+7. Local Web UI
+   - `subbridge serve` starts a local Hono server with browser UI
+   - Paste YAML or enter subscription URL, download or copy the generated config
+
+Breaking changes from v0.2.x:
+- CLI command renamed: `subbridge convert` → `subbridge build`
+- Output no longer includes migration report fields (`decisions`, `issues`, `repairs`, `behaviorChanges`)
+- Core library API changed: use `runPipeline()` instead of `migrateClashConfig()`
+
+### 开发说明
+
+- 版本目标：从"配置翻译器"重构为"节点注入器"，核心代码从 ~8000 行降至 ~3000 行
+- 关键决策：
+  - 内置 1 套默认模板 + 用户可完全替换（`init` → 修改 → `-t` 覆写）
+  - 占位符保持 JSON 合法，不破坏 IDE 语法高亮
+  - 国家分组默认启用，23 个地区关键词正则表
+  - 失败节点 stderr 警告，不中断整体流程
+- 兼容性更新：sing-box 1.13 breaking changes（dns outbound 删除、legacy inbound fields 删除）
+- npm 发布准备：Node.js 18+ 构建、`#!/usr/bin/env node` shebang、publishConfig
+- 本地 Web UI：`subbridge serve`（Hono + @hono/node-server，Node.js 兼容）
+- 测试：217 pass，20 个测试文件，覆盖所有核心模块
+
 ## v0.2.1
 
 ### 提交文案

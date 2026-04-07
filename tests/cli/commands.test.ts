@@ -1,20 +1,11 @@
 import { describe, test, expect } from 'bun:test';
-import { mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { runConvert } from '../../src/cli/commands/convert';
 import { runValidate } from '../../src/cli/commands/validate';
 import { runVerify } from '../../src/cli/commands/verify';
-
-const SAMPLE_YAML = `
-proxies:
-  - name: test-ss
-    type: ss
-    server: example.com
-    port: 8388
-    cipher: aes-256-gcm
-    password: testpass
-`;
+import { runInit } from '../../src/cli/commands/init';
+import { buildCommand } from '../../src/cli/commands/build';
 
 function patchExit(): () => void {
     const original = process.exit;
@@ -26,192 +17,6 @@ function patchExit(): () => void {
         (process as never).exit = original as never;
     };
 }
-
-describe('CLI Convert Command', () => {
-    test('converts input file and writes output JSON', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        const output = join(dir, 'out.json');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        await runConvert({ input, output, pretty: true });
-
-        const content = readFileSync(output, 'utf-8');
-        const json = JSON.parse(content);
-        expect(json.outbounds).toBeDefined();
-    });
-
-    test('writes migration report when --report is provided', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        const report = join(dir, 'report.json');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        await runConvert({ input, report, pretty: true });
-
-        const content = readFileSync(report, 'utf-8');
-        const json = JSON.parse(content);
-        expect(json.summary).toBeDefined();
-        expect(json.display).toBeDefined();
-    });
-
-    test('writes report display when --report-display is provided', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        const reportDisplay = join(dir, 'report-display.json');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        await runConvert({ input, reportDisplay, pretty: true });
-
-        const content = readFileSync(reportDisplay, 'utf-8');
-        const json = JSON.parse(content);
-        expect(json.summaryLine).toBeDefined();
-        expect(json.highlights).toBeDefined();
-    });
-
-    test('writes intermediate artifacts when --artifacts is provided', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        const artifacts = join(dir, 'artifacts');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        await runConvert({ input, artifacts });
-
-        expect(JSON.parse(readFileSync(join(artifacts, 'normalized.json'), 'utf-8'))).toBeDefined();
-        expect(JSON.parse(readFileSync(join(artifacts, 'analysis.json'), 'utf-8'))).toBeDefined();
-        expect(JSON.parse(readFileSync(join(artifacts, 'plan.json'), 'utf-8'))).toBeDefined();
-    });
-
-    test('prints full report view when --report-mode full is set', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        const output = join(dir, 'out.json');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        const lines: string[] = [];
-        const original = console.log;
-        console.log = (...args: unknown[]) => {
-            lines.push(args.join(' '));
-        };
-
-        try {
-            await runConvert({ input, output, reportMode: 'full' });
-            expect(lines.join('\n')).toContain('Module summary:');
-            expect(lines.join('\n')).toContain('proxy: exact=');
-        } finally {
-            console.log = original;
-        }
-    });
-
-    test('aggregates warning output when warning count is high', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        const output = join(dir, 'out.json');
-        const ipCidr6Rules = Array.from({ length: 60 }, (_, index) =>
-            `  - IP-CIDR6,2001:db8:${index}::/64,Proxy,no-resolve`
-        ).join('\n');
-        const yaml = `
-proxies:
-  - name: test-ss
-    type: ss
-    server: example.com
-    port: 8388
-    cipher: aes-256-gcm
-    password: testpass
-proxy-groups:
-  - name: Proxy
-    type: select
-    proxies:
-      - test-ss
-rules:
-${ipCidr6Rules}
-  - MATCH,Proxy
-`;
-        writeFileSync(input, yaml, 'utf-8');
-
-        const warningLines: string[] = [];
-        const originalWarn = console.warn;
-        console.warn = (...args: unknown[]) => {
-            warningLines.push(args.join(' '));
-        };
-
-        try {
-            await runConvert({ input, output, reportMode: 'none' });
-            const joined = warningLines.join('\n');
-            expect(joined).toContain('grouped summary is shown below');
-            expect(joined).toContain('IP-CIDR6 rules are unsupported in V1 and were dropped');
-            expect((joined.match(/Unable to parse rule:/g) ?? []).length).toBeLessThanOrEqual(1);
-        } finally {
-            console.warn = originalWarn;
-        }
-    });
-
-    test('exits when no input and url are provided', async () => {
-        const restore = patchExit();
-        try {
-            await expect(runConvert({})).rejects.toThrow('EXIT:1');
-        } finally {
-            restore();
-        }
-    });
-
-    test('exits when --check is provided without --output', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        const restore = patchExit();
-        try {
-            await expect(runConvert({ input, check: true })).rejects.toThrow('EXIT:1');
-        } finally {
-            restore();
-        }
-    });
-
-    test('exits when --report-mode value is invalid', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        const restore = patchExit();
-        try {
-            await expect(runConvert({ input, reportMode: 'bad-mode' })).rejects.toThrow('EXIT:1');
-        } finally {
-            restore();
-        }
-    });
-
-    test('exits when --provider-fetch-timeout value is invalid', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        const restore = patchExit();
-        try {
-            await expect(
-                runConvert({ input, providerFetchTimeout: 'invalid-ms' })
-            ).rejects.toThrow('EXIT:1');
-        } finally {
-            restore();
-        }
-    });
-
-    test('exits when --provider-fetch-scope value is invalid', async () => {
-        const dir = mkdtempSync(join(tmpdir(), 'subbridge-cli-'));
-        const input = join(dir, 'in.yaml');
-        writeFileSync(input, SAMPLE_YAML, 'utf-8');
-
-        const restore = patchExit();
-        try {
-            await expect(
-                runConvert({ input, providerFetchScope: 'bad-scope' })
-            ).rejects.toThrow('EXIT:1');
-        } finally {
-            restore();
-        }
-    });
-
-});
 
 describe('CLI Validate Command', () => {
     test('prints success for valid JSON config', () => {
@@ -366,5 +171,78 @@ describe('CLI Verify Command', () => {
         } finally {
             restore();
         }
+    });
+});
+
+// ─── init 命令 ────────────────────────────────────────────────────────────────
+
+describe('CLI Init Command', () => {
+    test('成功写出内置模板到指定路径', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'subbridge-init-'));
+        const output = join(dir, 'my-template.json');
+
+        runInit({ output });
+
+        expect(existsSync(output)).toBe(true);
+        const content = readFileSync(output, 'utf-8');
+        const parsed = JSON.parse(content);
+        expect(typeof parsed).toBe('object');
+        expect(Array.isArray(parsed)).toBe(false);
+        expect(parsed['outbounds']).toBeDefined();
+    });
+
+    test('文件已存在且未传 --force 时退出', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'subbridge-init-'));
+        const output = join(dir, 'existing.json');
+        writeFileSync(output, '{}', 'utf-8');
+
+        const restore = patchExit();
+        try {
+            expect(() => runInit({ output })).toThrow('EXIT:1');
+        } finally {
+            restore();
+        }
+    });
+
+    test('文件已存在且传 --force 时覆盖成功', () => {
+        const dir = mkdtempSync(join(tmpdir(), 'subbridge-init-'));
+        const output = join(dir, 'existing.json');
+        writeFileSync(output, '{"old": true}', 'utf-8');
+
+        runInit({ output, force: true });
+
+        const parsed = JSON.parse(readFileSync(output, 'utf-8'));
+        expect(parsed['old']).toBeUndefined();
+        expect(parsed['outbounds']).toBeDefined();
+    });
+});
+
+// ─── build 命令（结构验证）────────────────────────────────────────────────────
+
+describe('CLI Build Command', () => {
+    test('命令名称为 build', () => {
+        const cmd = buildCommand();
+        expect(cmd.name()).toBe('build');
+    });
+
+    test('有 -i/--input 选项', () => {
+        const cmd = buildCommand();
+        const opt = cmd.options.find((o) => o.long === '--input');
+        expect(opt).toBeDefined();
+    });
+
+    test('-o/--output 为可选（不再是 requiredOption）', () => {
+        const cmd = buildCommand();
+        const opt = cmd.options.find((o) => o.long === '--output');
+        expect(opt).toBeDefined();
+        // mandatory 为 false 意味着该选项是可选的
+        expect(opt?.mandatory).toBe(false);
+    });
+
+    test('有 --force 和 --cache-dir 选项', () => {
+        const cmd = buildCommand();
+        const opts = cmd.options.map((o) => o.long);
+        expect(opts).toContain('--force');
+        expect(opts).toContain('--cache-dir');
     });
 });

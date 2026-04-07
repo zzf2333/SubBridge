@@ -1,115 +1,122 @@
 # 如何将 Clash / Clash.Meta YAML 转换为 sing-box 配置
 
-如果你的目标是把 `Clash` 或 `Clash.Meta YAML` 迁移到 `sing-box`，并且不想手工逐条改节点、分组、规则、DNS、TUN，那么 `SubBridge` 就是为这个场景设计的。
+如果你的目标是把 `Clash` 或 `Clash.Meta YAML`（包括机场订阅）接入 `sing-box`，`SubBridge` 就是为这个场景设计的。
 
 本文档面向这些问题：
 
 - 如何做 `Clash 转 sing-box`
 - 如何做 `Clash 订阅转换`
-- 如何做 `Clash 配置迁移`
+- 如何把机场订阅接入 `sing-box`
 - 如何验证生成后的 `sing-box` 配置是否真的可用
 
-## 1. 适用场景
+## 1. 工作原理
 
-你适合直接使用 `SubBridge`，如果你正在做以下事情：
+SubBridge 的工作方式是**节点注入**，而非全量翻译：
+
+1. 从你的 Clash 配置/订阅中提取节点列表
+2. 识别节点名中的地区关键词，自动分组（香港/日本/美国等）
+3. 将节点注入到 sing-box 模板的占位符位置
+4. 输出完整可运行的 sing-box 配置
+
+路由规则、DNS、入站配置由模板决定——工具内置一套默认模板，高级用户可完全替换。
+
+## 2. 适用场景
 
 - 手头有一份 `Clash / Clash.Meta YAML`，希望生成 `sing-box` 配置
-- 需要把机场提供的 `Clash` 订阅接入 `sing-box`
-- 想保留分组、规则、DNS、TUN 的主要结构，而不是只导出节点列表
-- 想要迁移后能继续执行 `sing-box check` 和代理连通性验证
-
-## 2. SubBridge 解决什么问题
-
-`SubBridge` 不是一个“只把格式改一下”的脚本，而是一个围绕 `Clash / Clash.Meta YAML -> sing-box` 的迁移工具链。
-
-它解决的是三类问题：
-
-1. **生成可运行配置**
-   - 目标不是看起来像 `sing-box`，而是尽量可运行。
-
-2. **解释迁移过程**
-   - 输出结构化报告，说明哪些字段被保留、近似、修复或降级。
-
-3. **验证迁移结果**
-   - 通过 `verify` 继续跑 `schema -> sing-box check -> proxy:smoke`。
+- 需要把机场提供的 Clash 订阅接入 `sing-box`
+- 想让工具自动按国家/地区生成分组，不想手工维护节点列表
+- 想要完全控制路由/DNS/入站配置，不受工具内置规则限制
 
 ## 3. 输入与输出
 
-输入：
+输入（可多源同时指定）：
 
-- `Clash / Clash.Meta YAML` 文本
-- 本地 YAML 文件
+- 本地 Clash / Clash.Meta YAML 文件
 - 远程 Clash 订阅 URL
 
 输出：
 
-- `sing-box` JSON 配置
-- 迁移报告（可选）
-- 验证报告（可选）
+- `sing-box` JSON 配置（直接可用，或经 `verify` 验证后使用）
 
 ## 4. 使用命令
 
-### 4.1 本地文件转换
+### 4.1 零配置：使用内置默认模板
 
 ```bash
-subbridge convert -i clash.yaml -o singbox.json
+# 本地文件
+subbridge build -i clash.yaml -o config.json
+
+# 远程订阅
+subbridge build -i https://example.com/sub -o config.json
+
+# 多源合并（文件 + 订阅 URL）
+subbridge build -i clash.yaml -i https://example.com/sub -o config.json
 ```
 
-### 4.2 远程订阅转换
+内置默认模板包含：TUN 全局代理、国家分组（自动展开）、geo 路由规则、双栈 DNS。
+
+### 4.2 自定义模板
 
 ```bash
-subbridge convert -u https://example.com/clash -o singbox.json
+# 取得内置模板副本
+subbridge init -o my-template.json
+
+# 按需修改（DNS、路由、rule_set URL、入站等）
+vim my-template.json
+
+# 使用自定义模板构建
+subbridge build -i clash.yaml -t my-template.json -o config.json
 ```
 
-### 4.3 输出迁移报告
+### 4.3 模板占位符说明
 
-```bash
-subbridge convert -i clash.yaml -o singbox.json -r report.json --report-display report-display.json
+在 sing-box 模板的 `outbounds` 数组中使用以下占位符：
+
+```json
+{
+  "outbounds": [
+    { "type": "selector", "tag": "🚀 节点", "outbounds": ["auto", "$nodes"] },
+    { "type": "urltest",  "tag": "auto",   "outbounds": ["$nodes"] },
+    { "type": "selector", "tag": "🇭🇰 香港", "outbounds": ["$nodes:HK"] },
+    { "type": "selector", "tag": "🇯🇵 日本", "outbounds": ["$nodes:JP"] },
+    { "$subbridge": "nodes" },
+    { "$subbridge": "country_groups" }
+  ]
+}
 ```
 
-### 4.4 预拉取 provider 后再迁移
+- `"$nodes"` — 所有节点 tag 列表
+- `"$nodes:HK"` — 香港节点 tag 列表（支持 HK/JP/US/SG/TW/KR 等 20+ 地区代码）
+- `{ "$subbridge": "nodes" }` — 展开为所有节点 outbound 对象
+- `{ "$subbridge": "country_groups" }` — 自动为每个有节点的国家生成 selector + urltest 组
+
+## 5. 转换后验证
 
 ```bash
-subbridge convert -i clash.yaml -o singbox.json --provider-fetch-scope all --provider-fetch-timeout 4000
+subbridge verify -i config.json
 ```
 
-## 5. 转换后验证步骤
+默认验证链路：schema 校验 → `sing-box check` → `proxy:smoke`
 
-完成转换后，建议不要直接结束，而是继续执行：
-
-```bash
-subbridge verify -i singbox.json
-```
-
-默认验证链路：
-
-1. schema 校验
-2. `sing-box check`
-3. `proxy:smoke`
-
-如果你只想看静态合法性，也可以使用：
+只做静态合法性校验：
 
 ```bash
-subbridge validate -i singbox.json --with-singbox
+subbridge validate -i config.json --with-singbox
 ```
 
 ## 6. 常见问题
 
 ### Clash 订阅和 Clash.Meta YAML 都支持吗？
 
-支持。当前公开承诺的输入范围就是 `Clash / Clash.Meta YAML`。
+支持。当前公开承诺的输入范围就是 `Clash / Clash.Meta YAML`，包括本地文件和远程订阅 URL。
 
-### 为什么不建议手工改？
+### 国家分组识别不准怎么办？
 
-因为 `Clash` 和 `sing-box` 的结构差异不只在字段名，还有分组、规则、DNS、TUN、Provider 等行为差异。手工迁移很容易出现“看起来能用，实际运行出错”的情况。
-
-### 生成之后一定可用吗？
-
-`SubBridge` 的目标是“尽量生成可运行配置”，但最终是否可用仍然受源配置质量、节点状态、网络环境影响。所以推荐始终执行 `verify`。
+使用 `subbridge init` 取得模板，在模板中手动写死你想要的节点组逻辑，跳过 `{ "$subbridge": "country_groups" }` 占位符，改用 `"$nodes:HK"` 等精确指定。
 
 ### 这个项目是不是在线转换平台？
 
-不是。当前定位是一个公开仓库和工具链，用于稳定完成 `Clash / Clash.Meta YAML -> sing-box` 的迁移与验证。
+不是。当前定位是一个公开仓库和工具链，用于稳定完成 `Clash / Clash.Meta YAML -> sing-box` 的转换。
 
 ## 7. 下一步阅读
 

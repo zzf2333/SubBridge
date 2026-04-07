@@ -1,7 +1,6 @@
 import { Hono } from 'hono';
-import { migrateClashConfigWithProviderFetch, validateSingboxConfig } from '../../core/index';
-import type { ProviderRefreshSummary } from '../../core/types/migration';
-import { fetchText } from '../../utils/http';
+import { runPipeline } from '../../core/build/pipeline';
+import { validateSingboxConfig } from '../../core/validator/index';
 import { assertSafeRemoteUrlWithDns } from '../../utils/url-safety';
 
 const app = new Hono();
@@ -10,35 +9,6 @@ interface ConvertBody {
     source: string;
     sourceType?: 'yaml' | 'url';
     validate?: boolean;
-    includeReport?: boolean;
-    includeArtifacts?: boolean;
-    fetchProviders?: boolean;
-    providerFetchTimeoutMs?: number;
-    providerFetchScope?: 'proxy' | 'rule' | 'all';
-    providerFetchForce?: boolean;
-}
-
-interface ValidationPayload {
-    valid: boolean;
-    errors: string[];
-}
-
-function buildProviderRefreshPayload(refresh: ProviderRefreshSummary | undefined):
-    | {
-          fetched: number;
-          skipped: number;
-          failed: number;
-      }
-    | undefined {
-    if (!refresh) {
-        return undefined;
-    }
-
-    return {
-        fetched: refresh.fetched,
-        skipped: refresh.skipped,
-        failed: refresh.failed,
-    };
 }
 
 app.post('/', async (c) => {
@@ -53,85 +23,61 @@ app.post('/', async (c) => {
         return c.json({ success: false, error: 'Missing required field: source' }, 400);
     }
 
-    let yamlContent = body.source;
-
     if (body.sourceType === 'url') {
+        // URL 模式：先做 SSRF 检查，再通过 pipeline 的 inputs 拉取
         try {
-            yamlContent = await fetchText(body.source, undefined, async (url) => {
-                await assertSafeRemoteUrlWithDns(url, { allowDataUrl: true });
-            });
+            await assertSafeRemoteUrlWithDns(body.source, { allowDataUrl: true });
         } catch (e) {
             return c.json({ success: false, error: (e as Error).message }, 400);
         }
-    }
 
-    const result = await migrateClashConfigWithProviderFetch(yamlContent, {
-        targetProfile: 'auto',
-        emitReport: body.includeReport !== false,
-        emitIntermediateArtifacts: body.includeArtifacts === true,
-        providerFetch:
-            body.fetchProviders === false
-                ? { enabled: false }
-                : {
-                      timeoutMs: body.providerFetchTimeoutMs,
-                      scope: body.providerFetchScope,
-                      force: body.providerFetchForce === true,
-                      fetcher: async (url, timeoutMs) => {
-                          return fetchText(url, timeoutMs, assertSafeRemoteUrlWithDns);
-                      },
-                  },
-    });
-    const providerRefreshPayload = buildProviderRefreshPayload(result.providerRefresh);
+        try {
+            const result = await runPipeline({
+                inputs: [body.source],
+                validateUrl: (url) => assertSafeRemoteUrlWithDns(url, { allowDataUrl: true }),
+            });
 
-    const reportPayload =
-        body.includeReport === false
-            ? undefined
-            : {
-                  report: result.report,
-                  reportDisplay: result.report.display,
-              };
-    const artifactsPayload =
-        body.includeArtifacts === true
-            ? {
-                  artifacts: result.artifacts,
-              }
-            : undefined;
-    const validationPayload =
-        body.validate === true && result.config ? buildValidationPayload(result.config) : undefined;
+            const config = JSON.parse(result.output) as Record<string, unknown>;
 
-    if (!result.runnable || !result.config) {
-        return c.json(
-            {
-                success: false,
-                runnable: false,
-                issues: result.issues,
-                providerRefresh: providerRefreshPayload,
-                ...reportPayload,
-                ...artifactsPayload,
+            const validationPayload =
+                body.validate === true ? validateSingboxConfig(config as never) : undefined;
+
+            return c.json({
+                success: true,
+                convertedCount: result.convertedCount,
+                skippedCount: result.skippedCount,
+                config,
                 validation: validationPayload,
-            },
-            422
-        );
+                danglingRefs: result.danglingRefs.length > 0 ? result.danglingRefs : undefined,
+            });
+        } catch (e) {
+            return c.json({ success: false, error: (e as Error).message }, 500);
+        }
     }
 
-    return c.json({
-        success: true,
-        runnable: result.runnable,
-        config: result.config,
-        providerRefresh: providerRefreshPayload,
-        ...reportPayload,
-        ...artifactsPayload,
-        validation: validationPayload,
-        issues: result.issues.length > 0 ? result.issues : undefined,
-    });
-});
+    // YAML 文本模式（默认）：将 source 视为内联 YAML 内容，不走文件系统
+    try {
+        const result = await runPipeline({
+            inputs: [],
+            inlineInputs: [{ name: 'inline', content: body.source }],
+        });
 
-function buildValidationPayload(config: unknown): ValidationPayload {
-    const validation = validateSingboxConfig(config as never);
-    return {
-        valid: validation.valid,
-        errors: validation.errors,
-    };
-}
+        const config = JSON.parse(result.output) as Record<string, unknown>;
+
+        const validationPayload =
+            body.validate === true ? validateSingboxConfig(config as never) : undefined;
+
+        return c.json({
+            success: true,
+            convertedCount: result.convertedCount,
+            skippedCount: result.skippedCount,
+            config,
+            validation: validationPayload,
+            danglingRefs: result.danglingRefs.length > 0 ? result.danglingRefs : undefined,
+        });
+    } catch (e) {
+        return c.json({ success: false, error: (e as Error).message }, 500);
+    }
+});
 
 export default app;

@@ -66,8 +66,6 @@ trap cleanup EXIT
 
 INPUT_FILE="$TMP_DIR/smoke.yaml"
 OUTPUT_FILE="$TMP_DIR/smoke.json"
-REPORT_FILE="$TMP_DIR/report.json"
-ARTIFACTS_DIR="$TMP_DIR/artifacts"
 SERVER_LOG="$TMP_DIR/server.log"
 
 cat > "$INPUT_FILE" <<'EOF'
@@ -91,16 +89,14 @@ echo -n "1. Build dist artifacts... "
 bun run build >/dev/null
 echo -e "${GREEN}✓ Passed${NC}"
 
-echo -n "2. CLI convert smoke... "
-bun ./dist/cli.js convert \
+echo -n "2. CLI build smoke... "
+bun ./dist/cli.js build \
     -i "$INPUT_FILE" \
-    -o "$OUTPUT_FILE" \
-    -r "$REPORT_FILE" \
-    -a "$ARTIFACTS_DIR" >/dev/null
+    -o "$OUTPUT_FILE" >/dev/null 2>&1
 
-if [ ! -f "$OUTPUT_FILE" ] || [ ! -f "$REPORT_FILE" ] || [ ! -f "$ARTIFACTS_DIR/plan.json" ]; then
+if [ ! -f "$OUTPUT_FILE" ]; then
     echo -e "${RED}✗ Failed${NC}"
-    echo "Missing CLI output artifacts"
+    echo "Missing CLI output: $OUTPUT_FILE"
     exit 1
 fi
 echo -e "${GREEN}✓ Passed${NC}"
@@ -125,7 +121,7 @@ if [ "$WEB_SMOKE_ENABLED" = "1" ]; then
     echo -n "4. Health endpoint smoke... "
     HEALTH_RESPONSE=""
     for _ in {1..20}; do
-        if HEALTH_RESPONSE="$(curl -fsS "http://127.0.0.1:$PORT/health" 2>/dev/null)"; then
+        if HEALTH_RESPONSE="$(curl -fsS --max-time 3 "http://localhost:$PORT/health" 2>/dev/null)"; then
             break
         fi
         sleep 0.2
@@ -146,10 +142,10 @@ if [ "$WEB_SMOKE_ENABLED" = "1" ]; then
     echo -e "${GREEN}✓ Passed${NC}"
 
     echo -n "5. Convert endpoint smoke... "
-    CONVERT_RESPONSE="$(curl -fsS -X POST "http://127.0.0.1:$PORT/api/convert" \
+    CONVERT_RESPONSE="$(curl -fsS --max-time 10 -X POST "http://localhost:$PORT/api/convert" \
         -H 'content-type: application/json' \
-        --data "{\"source\":\"proxies:\\n  - name: web-smoke\\n    type: ss\\n    server: example.com\\n    port: 8388\\n    cipher: aes-256-gcm\\n    password: testpass\",\"sourceType\":\"yaml\",\"includeArtifacts\":true}")"
-    if [[ "$CONVERT_RESPONSE" != *'"success":true'* ]] || [[ "$CONVERT_RESPONSE" != *'"artifacts"'* ]]; then
+        --data "{\"source\":\"proxies:\\n  - name: web-smoke\\n    type: ss\\n    server: example.com\\n    port: 8388\\n    cipher: aes-256-gcm\\n    password: testpass\",\"sourceType\":\"yaml\"}")"
+    if [[ "$CONVERT_RESPONSE" != *'"success":true'* ]] || [[ "$CONVERT_RESPONSE" != *'"config"'* ]]; then
         echo -e "${RED}✗ Failed${NC}"
         echo "$CONVERT_RESPONSE"
         exit 1
@@ -164,5 +160,3 @@ echo ""
 echo -e "${GREEN}Smoke test passed.${NC}"
 echo "Artifacts:"
 echo "  CLI output: $OUTPUT_FILE"
-echo "  CLI report: $REPORT_FILE"
-echo "  CLI artifacts: $ARTIFACTS_DIR"

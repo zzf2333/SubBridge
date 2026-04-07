@@ -28,13 +28,10 @@ bun run release:notes >/dev/null
 echo "5) seo"
 bun run seo:check
 
-echo "6) verify representative Clash fixtures"
-bun run verify:fixtures
-
-echo "7) smoke (require web)"
+echo "6) smoke (require web)"
 REQUIRE_WEB_SMOKE="${REQUIRE_WEB_SMOKE:-1}" bun run smoke
 
-echo "8) pack dry-run"
+echo "7) pack dry-run"
 npm_config_cache="$NPM_CACHE_DIR" npm pack --dry-run
 
 echo "----------------------------------------"

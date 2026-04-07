@@ -1,0 +1,67 @@
+{
+    "log": { "level": "info", "timestamp": true },
+    "dns": {
+        "servers": [
+            { "tag": "local", "type": "udp", "server": "223.5.5.5" },
+            { "tag": "remote", "type": "tls", "server": "8.8.8.8", "detour": "🚀 节点" }
+        ],
+        "rules": [
+            { "rule_set": ["geosite-cn"], "server": "local" }
+        ],
+        "final": "remote",
+        "independent_cache": true
+    },
+    "inbounds": [
+        {
+            "type": "tun",
+            "tag": "tun-in",
+            "address": ["172.19.0.1/30", "fdfe:dcba:9876::1/126"],
+            "auto_route": true
+        }
+    ],
+    "outbounds": [
+        { "type": "selector", "tag": "🚀 节点", "outbounds": ["♻️ 自动", "$nodes"] },
+        { "type": "urltest", "tag": "♻️ 自动", "outbounds": ["$nodes"], "interval": "5m", "tolerance": 50 },
+        { "$subbridge": "country_groups" },
+        { "$subbridge": "nodes" },
+        { "type": "direct", "tag": "direct" },
+        { "type": "block", "tag": "block" }
+    ],
+    "route": {
+        "rule_set": [
+            {
+                "type": "remote",
+                "tag": "geosite-cn",
+                "format": "binary",
+                "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/cn.srs",
+                "download_detour": "direct",
+                "update_interval": "3d"
+            },
+            {
+                "type": "remote",
+                "tag": "geoip-cn",
+                "format": "binary",
+                "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geoip/cn.srs",
+                "download_detour": "direct",
+                "update_interval": "3d"
+            },
+            {
+                "type": "remote",
+                "tag": "geosite-ads",
+                "format": "binary",
+                "url": "https://github.com/MetaCubeX/meta-rules-dat/raw/sing/geo/geosite/category-ads-all.srs",
+                "download_detour": "direct",
+                "update_interval": "3d"
+            }
+        ],
+        "rules": [
+            { "action": "sniff" },
+            { "protocol": "dns", "action": "hijack-dns" },
+            { "rule_set": ["geosite-ads"], "outbound": "block" },
+            { "rule_set": ["geosite-cn", "geoip-cn"], "outbound": "direct" }
+        ],
+        "auto_detect_interface": true,
+        "default_domain_resolver": "local",
+        "final": "🚀 节点"
+    }
+}

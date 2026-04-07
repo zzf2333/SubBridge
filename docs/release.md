@@ -1,4 +1,4 @@
-# SubBridge 发布流程（v0.2.1）
+# SubBridge 发布流程（v0.3.0）
 
 ## 1. 版本策略
 
@@ -53,12 +53,12 @@ bun run release:notes > /tmp/subbridge-release-notes.md
 ```
 
 6. 提交版本变更
-7. 打 tag（示例：`v0.2.1`）
+7. 打 tag（示例：`v0.3.0`）
 8. 推送 commit 与 tag
 9. 在 GitHub 创建 Release，使用当前版本文案：
 
 ```bash
-gh release create "v0.2.1" --notes-file /tmp/subbridge-release-notes.md
+gh release create "v0.3.0" --notes-file /tmp/subbridge-release-notes.md
 ```
 
 如果使用网页创建 Release，可先执行 `bun run release:notes` 并粘贴输出内容。
@@ -78,7 +78,7 @@ gh release create "v0.2.1" --notes-file /tmp/subbridge-release-notes.md
 
 1. 从发布包安装并验证 CLI：
    - `subbridge --version`
-   - `subbridge convert -i <input> -o <output>`
+   - `subbridge build -i <input> -o <output>`
 2. 检查 Web 入口健康探针：
    - `GET /health`
 3. 抽样验证 `api/convert` 与 `api/subscribe`
